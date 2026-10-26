@@ -1,4 +1,4 @@
-# Compatibilidade de navegadores — Texto IA 0.6.1
+# Compatibilidade de navegadores — Texto IA 0.6.2
 
 Conferência do manifesto, das APIs e da documentação oficial em 26/10/2026. A extensão é um pacote Manifest V3 para navegadores de computador baseados em Chromium. Não é um pacote universal para todos os navegadores.
 
@@ -60,4 +60,5 @@ Testes com conta real podem consumir a API e devem usar apenas conteúdo de exem
 - [Mozilla: implementação de background](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/background).
 - [Apple: empacotar Web Extensions para Safari](https://developer.apple.com/documentation/safariservices/packaging-a-web-extension-for-safari).
 - [Vivaldi: extensões e instalação manual](https://help.vivaldi.com/desktop/appearance-customization/extensions/).
+
 

@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.6.1
+# Texto IA — GHS Studio · 0.6.2
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -91,4 +91,5 @@ Não há suporte a brave://, lojas de extensões e páginas protegidas. Alguns e
 ## Compatibilidade
 
 Consulte [COMPATIBILITY.md](COMPATIBILITY.md) antes de distribuir para outro navegador. O pacote Chromium atual não é instalável diretamente no Firefox ou Safari.
+
 
