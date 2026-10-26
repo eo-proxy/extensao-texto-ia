@@ -1,30 +1,32 @@
 # Texto IA — GHS Studio
 
-Extensão Brave para revisar textos com **OpenAI (GPT), Google Gemini e Anthropic Claude**, usando a chave de API de cada pessoa.
+Extensão Brave **0.6.0** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
 
-Versão **0.5.0**. Interface em português, tema escuro e botão compacto com o robô e a lupa da GHS Studio.
+## O que mudou
+
+- Revisão começa após **2,5 segundos sem digitar**, sem a espera fixa anterior de 12 segundos.
+- Retomar a digitação recolhe a sugestão e cancela a chamada anterior; respostas antigas não substituem o novo texto.
+- **Lembrar chave neste dispositivo** vem desligado. Sem marcar, a conexão fica só na memória da sessão e é descartada ao trocar de IA ou encerrar o Brave.
+- Gemini tem modo rápido com configuração de raciocínio compatível com o modelo, incluindo nível mínimo no gemini-3.6-flash.
+- Listagem autenticada filtra modelos de texto, especialistas, versões duplicadas e experimentais; Testar modelo confirma a geração.
+- Interface com abas Revisar texto e Sua IA, controles explicados e diagnóstico sem texto ou chave.
 
 ## Instalação
 
-Extraia brave-text-assistant.zip, abra brave://extensions e use **Carregar sem compactação** na pasta brave-text-assistant. Para atualizar a instalação existente, recarregue a extensão e as páginas abertas.
+Extraia brave-text-assistant.zip. Em brave://extensions, ative Modo do desenvolvedor e use Carregar sem compactação na pasta brave-text-assistant.
 
-Consulte o [guia dos provedores e de instalação](brave-text-assistant/README.md) e a [explicação de privacidade](brave-text-assistant/PRIVACY.md). Nenhuma credencial pessoal acompanha o repositório ou ZIP.
+Para atualizar, substitua os arquivos da mesma pasta, recarregue a extensão e atualize as páginas abertas. A atualização remove as chaves antigas salvas automaticamente do disco, mantendo a conexão ativa na memória da sessão. Marque Lembrar chave neste dispositivo e ative a configuração se quiser persistência.
 
-## Desenvolvimento
+Veja o [guia de uso](brave-text-assistant/README.md), a [privacidade](brave-text-assistant/PRIVACY.md) e a [revisão de segurança](brave-text-assistant/SECURITY.md). Nenhuma credencial pessoal acompanha o ZIP ou o repositório.
 
-Node.js 22 ou mais recente. A extensão e os testes não exigem bibliotecas npm.
+## Desenvolvimento e testes
 
-- npm run check: verifica manifesto, arquivos, formulário e sintaxe.
-- npm test: verifica as APIs, erros, migração, permissões, isolamento das chaves, formulário e fluxos do widget.
+Node.js 22 ou mais recente. Sem dependências npm de execução ou teste.
 
-Fontes oficiais conferidas em 26/10/2026. Os testes usam respostas simuladas e não consomem as APIs. Para confirmar uma conta real, use **Testar conexão** na extensão, com uma frase fixa e possível cobrança.
+- npm run check: manifesto, arquivos, formulário e sintaxe.
+- npm test: integrações, filtros, sessão, migração, isolamento de credenciais, cancelamento, seleção segura e tempo de espera com relógio simulado.
 
-## Arquivos
-
-- brave-text-assistant/: extensão instalável.
-- tests/: verificações sem credenciais reais.
-- scripts/: conferência do pacote.
-- brave-text-assistant.zip: pacote para instalação local.
+Os testes usam respostas simuladas, sem consumir APIs reais. O teste na extensão usa uma frase fixa e pode consumir créditos do provedor. A prévia visual local não foi concluída no ambiente de execução por restrição de acesso a sockets.
 
 Para gerar o ZIP no PowerShell: Compress-Archive -Path brave-text-assistant -DestinationPath brave-text-assistant.zip -Force.
 

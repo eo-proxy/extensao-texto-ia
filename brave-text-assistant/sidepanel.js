@@ -1,248 +1,217 @@
 import { PROVIDERS, getProvider, normalizeModel, validateKey } from "./providers.mjs";
 
 const $ = (id) => document.getElementById(id);
-let snapshot = null;
-let sourceText = "";
-let sourceTabId = null;
-let selectedProvider = "openai";
-let activeProvider = "openai";
-let profiles = {};
-const drafts = {};
-const modelCatalogs = {};
-let settingsBusy = false;
-let permissionGranted = false;
-let renderVersion = 0;
+let snapshot = null, sourceText = "", sourceTabId = null;
+let selectedProvider = "openai", profiles = {}, diagnostics = {}, modelCatalog = [];
+let settingsBusy = false, permissionGranted = false, renderVersion = 0;
 
-const settingsPanel = $("settings");
-const status = $("status");
-const settingsStatus = $("settingsStatus");
-
-function setStatus(message = "", isError = false) {
-  status.textContent = message;
-  status.classList.toggle("error", isError);
-}
-function setSettingsStatus(message = "", isError = false) {
-  settingsStatus.textContent = message;
-  settingsStatus.classList.toggle("error", isError);
-}
-function openSettings() {
-  settingsPanel.classList.remove("hidden");
-  requestAnimationFrame(() => {
-    settingsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-    $("provider").focus({ preventScroll: true });
-  });
-}
-function providerName(id) { return getProvider(id).name; }
+function setStatus(message = "", error = false) { $("status").textContent = message; $("status").classList.toggle("error", error); }
+function setSettingsStatus(message = "", error = false) { $("settingsStatus").textContent = message; $("settingsStatus").classList.toggle("error", error); }
 async function send(message) {
   const response = await chrome.runtime.sendMessage(message);
   if (!response?.ok) throw new Error(response?.error || "A extensão não respondeu. Recarregue-a no Brave.");
   return response;
 }
-function currentDraft() {
-  return { apiKey: $("apiKey").value.trim(), model: $("model").value.trim() };
+function showView(settings) {
+  $("settings").classList.toggle("hidden", !settings);
+  $("reviewView").classList.toggle("hidden", settings);
+  $("settingsToggle").setAttribute("aria-selected", String(settings));
+  $("reviewTab").setAttribute("aria-selected", String(!settings));
+  $("settingsToggle").classList.toggle("active", settings);
+  $("reviewTab").classList.toggle("active", !settings);
+  window.scrollTo?.({ top: 0, behavior: "instant" });
 }
-function rememberDraft() { drafts[selectedProvider] = currentDraft(); }
-function updateSettingsButtons() {
-  const values = currentDraft();
-  const saved = profiles[selectedProvider];
-  const savedKey = Boolean(saved?.apiKey && saved.apiKey === values.apiKey);
+function openSettings() { showView(true); }
+function currentValues() {
+  return {
+    apiKey: $("apiKey").value.trim(), model: $("model").value.trim(),
+    rememberCredentials: $("rememberCredentials").checked,
+    geminiSpeed: $("geminiSpeed").value || "fast"
+  };
+}
+function updateButtons() {
+  const values = currentValues();
+  const profile = profiles[selectedProvider];
   $("authorizeProvider").hidden = permissionGranted;
-  $("authorizeProvider").disabled = settingsBusy || !savedKey;
+  $("authorizeProvider").disabled = settingsBusy || !profile?.apiKey || profile.apiKey !== values.apiKey;
   $("loadModels").disabled = settingsBusy || !permissionGranted || !values.apiKey;
   $("testProvider").disabled = settingsBusy || !permissionGranted || !values.apiKey || !values.model;
-  for (const id of ["provider", "apiKey", "model", "modelChoice", "saveSettings", "forgetKey"]) $(id).disabled = settingsBusy;
+  for (const id of ["provider", "apiKey", "model", "modelChoice", "saveSettings", "forgetKey", "rememberCredentials", "geminiSpeed", "includeExperimental"]) $(id).disabled = settingsBusy;
   $("permissionHint").textContent = permissionGranted
-    ? "Acesso a este provedor autorizado no Brave."
-    : "Salve a chave primeiro e depois clique em Autorizar acesso. O aviso do Brave pode fechar esta janela; os dados salvos continuam aqui.";
+    ? "O Brave já permite o acesso a esta API."
+    : "Clique em Usar esta IA para preparar a conexão. Depois autorize o acesso no Brave.";
 }
-function setBusy(value) { settingsBusy = value; updateSettingsButtons(); }
-
+function setBusy(value) { settingsBusy = value; updateButtons(); }
 function renderModelCatalog() {
   const select = $("modelChoice");
   select.replaceChildren();
   const blank = document.createElement("option");
-  blank.value = "";
-  blank.textContent = "Escolha um modelo ou informe o ID abaixo";
+  blank.value = ""; blank.textContent = "Escolha um modelo da sua conta";
   select.append(blank);
-  const catalog = modelCatalogs[selectedProvider];
-  const models = catalog?.key === $("apiKey").value.trim() ? catalog.models : [];
-  for (const model of models || []) {
+  for (const model of modelCatalog) {
     const option = document.createElement("option");
     option.value = model.id;
-    option.textContent = model.label === model.id ? model.id : model.label + " — " + model.id;
+    const fast = /flash-lite|haiku|nano|mini|flash/.test(model.id);
+    option.textContent = (model.label === model.id ? model.id : model.label + " — " + model.id) + (fast ? " · rápido" : "");
     select.append(option);
   }
   select.value = $("model").value.trim();
-  $("modelChoiceWrap").classList.toggle("hidden", !models?.length);
+  $("modelChoiceWrap").classList.toggle("hidden", !modelCatalog.length);
 }
-
+function renderDiagnostic() {
+  const diagnostic = diagnostics[selectedProvider];
+  $("lastDiagnostic").textContent = diagnostic
+    ? "Última chamada: " + (diagnostic.code === "OK" ? "sucesso" : diagnostic.code) +
+      " · " + (diagnostic.durationMs / 1000).toFixed(1) + " s" +
+      (diagnostic.httpStatus ? " · HTTP " + diagnostic.httpStatus : "") + " · " + diagnostic.model
+    : "O teste envia apenas uma frase de exemplo. Nenhum texto ou chave entra no diagnóstico.";
+}
+async function refreshSummary() {
+  const profile = profiles[selectedProvider];
+  const info = getProvider(selectedProvider);
+  const configured = Boolean(profile?.apiKey && profile?.model && permissionGranted);
+  $("setupNotice").classList.toggle("hidden", configured);
+  const label = !profile?.apiKey ? "Conecte sua IA" : !permissionGranted ? "Falta autorizar" : !profile.model ? "Escolha um modelo" : profile.verifiedAt ? "Modelo testado" : "Pronto para revisar";
+  $("connectionState").textContent = label;
+  $("connectionState").classList.toggle("ready", configured);
+  $("providerLabel").textContent = info.name + (profile?.apiKey ? profile.rememberCredentials ? " · chave lembrada" : " · nesta sessão" : "");
+  renderDiagnostic();
+}
 async function renderProvider() {
   const version = ++renderVersion;
-  const info = getProvider(selectedProvider);
-  const values = drafts[selectedProvider] || profiles[selectedProvider] || {};
+  const info = getProvider(selectedProvider), profile = profiles[selectedProvider] || {};
   $("provider").value = selectedProvider;
-  $("providerGuideTitle").textContent = "Configurar " + info.name;
+  $("providerGuideTitle").textContent = "Como conectar " + info.name;
   $("providerSteps").replaceChildren();
-  for (const step of info.steps) {
-    const li = document.createElement("li");
-    li.textContent = step;
-    $("providerSteps").append(li);
-  }
+  for (const step of info.steps) { const li = document.createElement("li"); li.textContent = step; $("providerSteps").append(li); }
   $("providerNote").textContent = info.note;
-  $("getKeyLink").href = info.keyUrl;
-  $("getKeyLink").textContent = info.keyLink;
+  $("getKeyLink").href = info.keyUrl; $("getKeyLink").textContent = info.keyLink;
   $("providerDocsLink").href = info.docsUrl;
-  $("apiKeyLabel").textContent = info.keyLabel;
-  $("apiKey").placeholder = info.keyPlaceholder;
-  $("apiKey").value = values.apiKey || "";
-  $("model").placeholder = info.modelPlaceholder;
-  $("model").value = values.model || "";
+  $("apiKeyLabel").textContent = info.keyLabel; $("apiKey").placeholder = info.keyPlaceholder;
+  $("apiKey").value = profile.apiKey || ""; $("apiKey").type = "password";
+  $("showKey").textContent = "Mostrar"; $("showKey").setAttribute("aria-pressed", "false");
+  $("model").placeholder = info.modelPlaceholder; $("model").value = profile.model || "";
+  $("rememberCredentials").checked = profile.rememberCredentials === true;
+  $("geminiSpeed").value = profile.geminiSpeed || "fast";
+  $("geminiOptions").classList.toggle("hidden", selectedProvider !== "gemini");
   $("modelHelp").textContent = info.modelNote;
-  $("forgetKey").textContent = "Apagar chave de " + info.name;
-  $("apiKey").type = "password";
-  $("showKey").textContent = "Mostrar";
-  $("showKey").setAttribute("aria-pressed", "false");
-  renderModelCatalog();
-  permissionGranted = false;
-  updateSettingsButtons();
+  $("includeExperimental").checked = false;
+  modelCatalog = []; renderModelCatalog(); permissionGranted = false; updateButtons();
   const granted = await chrome.permissions.contains({ origins: [info.host] });
-  if (version === renderVersion) { permissionGranted = granted; updateSettingsButtons(); }
+  if (version === renderVersion) { permissionGranted = granted; updateButtons(); await refreshSummary(); }
 }
-
-async function refreshSummary() {
-  const info = getProvider(activeProvider);
-  const profile = profiles[activeProvider];
-  const permitted = await chrome.permissions.contains({ origins: [info.host] });
-  const configured = Boolean(profile?.apiKey && profile?.model && permitted);
-  $("setupNotice").classList.toggle("hidden", configured);
-  $("providerLabel").textContent = !profile?.apiKey ? "Nenhum provedor configurado"
-    : !permitted ? info.name + " · falta autorizar"
-    : !profile.model ? info.name + " · escolha o modelo"
-    : info.name + (profile.verifiedAt ? " · conexão testada" : " · não testado");
-  $("setupTitle").textContent = !profile?.apiKey ? "Configure sua IA para começar"
-    : !permitted ? "Autorize o acesso à sua IA" : "Escolha o modelo da sua IA";
-  $("setupDescription").textContent = !profile?.apiKey
-    ? "Cada pessoa configura a própria chave. Selecione o provedor para ver as instruções."
-    : "Os dados já estão salvos. Abra as configurações para concluir a etapa indicada.";
-  $("setupButton").textContent = "Abrir configuração";
-}
-
 async function loadSettings(initial = false) {
   const stored = await send({ type: "GET_SETTINGS" });
-  profiles = stored.profiles;
-  activeProvider = Object.hasOwn(PROVIDERS, stored.provider) ? stored.provider : "openai";
-  if (initial) selectedProvider = activeProvider;
+  profiles = stored.profiles || {}; diagnostics = stored.diagnostics || {};
+  selectedProvider = Object.hasOwn(PROVIDERS, stored.provider) ? stored.provider : "openai";
   $("widgetEnabled").checked = stored.widgetEnabled;
+  $("autoEnabled").checked = stored.autoEnabled !== false;
+  $("autoApplyEnabled").checked = stored.autoApplyEnabled === true;
   await renderProvider();
-  await refreshSummary();
-  if (initial && !profiles[activeProvider]?.apiKey) openSettings();
+  if (initial && !profiles[selectedProvider]?.apiKey) openSettings();
 }
-
-async function persistCurrent() {
-  const info = getProvider(selectedProvider);
-  const apiKey = validateKey($("apiKey").value);
-  const model = normalizeModel(selectedProvider, $("model").value);
-  await send({ type: "SAVE_PROVIDER_SETTINGS", provider: selectedProvider, apiKey, model });
-  const previous = profiles[selectedProvider];
-  profiles[selectedProvider] = { apiKey, model, verifiedAt: previous?.apiKey === apiKey && previous?.model === model ? previous.verifiedAt : null };
-  $("model").value = model;
-  drafts[selectedProvider] = { apiKey, model };
-  activeProvider = selectedProvider;
+async function useCurrent() {
+  const values = currentValues();
+  values.apiKey = validateKey(values.apiKey);
+  values.model = normalizeModel(selectedProvider, values.model);
+  const result = await send({ type: "SAVE_PROVIDER_SETTINGS", provider: selectedProvider, ...values });
+  profiles[selectedProvider] = result.profile || { ...values };
+  $("model").value = values.model;
   await refreshSummary();
-  return info;
 }
-
 $("provider").addEventListener("change", async () => {
-  rememberDraft();
-  selectedProvider = $("provider").value;
-  setSettingsStatus("");
-  try { await renderProvider(); }
-  catch (_) { setSettingsStatus("Não consegui consultar as permissões. Reabra a extensão.", true); }
+  const target = $("provider").value;
+  $("apiKey").value = ""; $("model").value = ""; modelCatalog = [];
+  setBusy(true); setSettingsStatus("");
+  try {
+    const response = await send({ type: "SELECT_PROVIDER", provider: target });
+    selectedProvider = response.provider; profiles = response.profiles || {}; diagnostics = response.diagnostics || {};
+    await renderProvider();
+  } catch (error) { setSettingsStatus(error.message, true); }
+  finally { setBusy(false); }
 });
-for (const id of ["apiKey", "model"]) {
-  $(id).addEventListener("input", () => { rememberDraft(); setSettingsStatus(""); renderModelCatalog(); updateSettingsButtons(); });
-}
+for (const id of ["apiKey", "model"]) $(id).addEventListener("input", () => {
+  if (id === "apiKey") { modelCatalog = []; renderModelCatalog(); }
+  setSettingsStatus(""); updateButtons();
+});
+$("rememberCredentials").addEventListener("change", async () => {
+  if ($("rememberCredentials").checked) { setSettingsStatus("A chave será lembrada depois de clicar em Usar esta IA."); return; }
+  if (!profiles[selectedProvider]?.rememberCredentials) return;
+  setBusy(true);
+  try {
+    await send({ type: "DISABLE_REMEMBERING", provider: selectedProvider });
+    profiles[selectedProvider].rememberCredentials = false;
+    await refreshSummary();
+    setSettingsStatus("Chave removida do armazenamento permanente. Ela funciona só nesta sessão.");
+  } catch (error) { setSettingsStatus(error.message, true); }
+  finally { setBusy(false); }
+});
 $("modelChoice").addEventListener("change", () => {
   if ($("modelChoice").value) $("model").value = $("modelChoice").value;
-  rememberDraft();
-  setSettingsStatus("Clique em Salvar ou Testar conexão para usar este modelo.");
-  updateSettingsButtons();
+  setSettingsStatus("Modelo escolhido. Clique em Usar esta IA ou Testar modelo."); updateButtons();
 });
 $("showKey").addEventListener("click", () => {
   const visible = $("apiKey").type === "password";
-  $("apiKey").type = visible ? "text" : "password";
-  $("showKey").textContent = visible ? "Ocultar" : "Mostrar";
+  $("apiKey").type = visible ? "text" : "password"; $("showKey").textContent = visible ? "Ocultar" : "Mostrar";
   $("showKey").setAttribute("aria-pressed", String(visible));
 });
-$("settingsToggle").addEventListener("click", () => {
-  if (settingsPanel.classList.contains("hidden")) openSettings();
-  else settingsPanel.classList.add("hidden");
-});
+$("settingsToggle").addEventListener("click", openSettings);
 $("setupButton").addEventListener("click", openSettings);
-$("closeSettings").addEventListener("click", () => settingsPanel.classList.add("hidden"));
-
-$("widgetEnabled").addEventListener("change", async () => {
-  try {
-    await send({ type: "SET_WIDGET_PREFS", widgetEnabled: $("widgetEnabled").checked });
-    setStatus($("widgetEnabled").checked ? "Botão flutuante ativado." : "Botão flutuante oculto.");
-  } catch (error) { setStatus(error.message, true); }
+$("closeSettings").addEventListener("click", () => showView(false));
+$("reviewTab").addEventListener("click", () => showView(false));
+for (const name of ["widgetEnabled", "autoEnabled", "autoApplyEnabled"]) $(name).addEventListener("change", async () => {
+  try { await send({ type: "SET_WIDGET_PREFS", [name]: $(name).checked }); setStatus("Preferência atualizada."); }
+  catch (error) { setStatus(error.message, true); }
 });
 $("saveSettings").addEventListener("click", async () => {
   setBusy(true);
   try {
-    await persistCurrent();
-    setSettingsStatus(!permissionGranted ? "Dados salvos. Clique em Autorizar acesso para continuar."
-      : !$("model").value ? "Chave salva. Consulte os modelos e escolha um para continuar."
-      : "Configuração salva. Use Testar conexão para confirmar que este modelo responde.");
+    await useCurrent();
+    setSettingsStatus(!permissionGranted ? "Conexão preparada. Autorize o acesso no botão abaixo."
+      : !$("model").value ? "Chave pronta para uso. Consulte e escolha um modelo."
+      : $("rememberCredentials").checked ? "Configuração ativada e lembrada neste dispositivo."
+      : "Configuração ativada apenas nesta sessão. Ao trocar de IA, estes dados serão descartados.");
   } catch (error) { setSettingsStatus(error.message, true); }
   finally { setBusy(false); }
 });
 $("authorizeProvider").addEventListener("click", () => {
-  // Solicite a permissão no próprio gesto, com os dados já salvos.
-  const permission = chrome.permissions.request({ origins: [getProvider(selectedProvider).host] });
+  const promise = chrome.permissions.request({ origins: [getProvider(selectedProvider).host] });
   setBusy(true);
-  permission.then(async (granted) => {
-    permissionGranted = granted;
-    await refreshSummary();
-    setSettingsStatus(granted ? "Acesso autorizado. Consulte os modelos ou teste a conexão."
-      : "Acesso negado. Sua chave continua salva; você pode autorizar depois.", !granted);
-  }).catch(() => setSettingsStatus("Não consegui pedir a permissão. Sua chave continua salva.", true))
-    .finally(() => setBusy(false));
+  promise.then(async (granted) => {
+    permissionGranted = granted; await refreshSummary();
+    setSettingsStatus(granted ? "Autorizado. Agora consulte os modelos ou teste o escolhido." : "Acesso negado. Você pode autorizar depois.", !granted);
+  }).catch(() => setSettingsStatus("Não foi possível pedir a permissão. Reabra a extensão.", true)).finally(() => setBusy(false));
 });
 $("loadModels").addEventListener("click", async () => {
-  setBusy(true);
-  setSettingsStatus("Consultando os modelos na sua conta…");
+  setBusy(true); setSettingsStatus("Consultando modelos de texto na API da sua conta…");
   try {
-    await persistCurrent();
-    const response = await send({ type: "LIST_PROVIDER_MODELS", provider: selectedProvider });
-    modelCatalogs[selectedProvider] = { key: $("apiKey").value.trim(), models: response.models };
-    renderModelCatalog();
-    setSettingsStatus(response.models.length + " modelos encontrados" + (response.partial ? " (lista parcial)" : "") + ". Escolha um e clique em Testar conexão.");
+    await useCurrent();
+    const response = await send({ type: "LIST_PROVIDER_MODELS", provider: selectedProvider, includeExperimental: $("includeExperimental").checked });
+    modelCatalog = response.models; renderModelCatalog();
+    setSettingsStatus(response.models.length + " modelos de texto encontrados. Selecione um abaixo e teste.");
   } catch (error) { setSettingsStatus(error.message, true); }
   finally { setBusy(false); }
 });
 $("testProvider").addEventListener("click", async () => {
-  setBusy(true);
-  setSettingsStatus("Testando a geração com um texto de exemplo…");
+  setBusy(true); setSettingsStatus("Testando o modelo com uma frase de exemplo…");
   try {
-    await persistCurrent();
-    await send({ type: "TEST_PROVIDER", provider: selectedProvider });
+    await useCurrent();
+    const response = await send({ type: "TEST_PROVIDER", provider: selectedProvider });
     profiles[selectedProvider].verifiedAt = Date.now();
+    const latest = await send({ type: "GET_SETTINGS" }); diagnostics = latest.diagnostics || {};
     await refreshSummary();
-    setSettingsStatus("Conexão testada: " + providerName(selectedProvider) + " respondeu com o modelo " + $("model").value + ".");
-  } catch (error) { setSettingsStatus(error.message, true); }
-  finally { setBusy(false); }
+    setSettingsStatus("Modelo respondeu em " + (response.durationMs / 1000).toFixed(1) + " s. Conexão pronta.");
+  } catch (error) {
+    try { const latest = await send({ type: "GET_SETTINGS" }); diagnostics = latest.diagnostics || {}; renderDiagnostic(); } catch (_) {}
+    setSettingsStatus(error.message, true);
+  } finally { setBusy(false); }
 });
 $("forgetKey").addEventListener("click", async () => {
   setBusy(true);
   try {
     await send({ type: "REMOVE_PROVIDER_KEY", provider: selectedProvider });
-    delete drafts[selectedProvider];
-    delete modelCatalogs[selectedProvider];
-    delete profiles[selectedProvider];
-    await renderProvider();
-    await refreshSummary();
-    setSettingsStatus("Chave deste provedor apagada. Os outros provedores foram preservados.");
+    delete profiles[selectedProvider]; await renderProvider();
+    setSettingsStatus("Chave e conexão deste provedor removidas.");
   } catch (error) { setSettingsStatus(error.message, true); }
   finally { setBusy(false); }
 });
@@ -276,13 +245,13 @@ $("readButton").addEventListener("click", async () => {
 });
 
 $("rewriteButton").addEventListener("click", async () => {
-  const provider = activeProvider;
+  const provider = selectedProvider;
   const apiKey = profiles[provider]?.apiKey;
   if (!apiKey) { openSettings(); return setSettingsStatus("Configure seu provedor antes de gerar a sugestão.", true); }
   const button = $("rewriteButton");
   button.disabled = true;
   button.textContent = "Gerando…";
-  setStatus(`Enviando texto para ${providerName(provider)}…`);
+  setStatus(`Enviando texto para ${getProvider(provider).name}…`);
   try {
     const response = await chrome.runtime.sendMessage({
       type: "AI_REWRITE",
@@ -327,4 +296,5 @@ document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("clic
 }));
 
 loadSettings(true).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));
+
 

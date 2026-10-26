@@ -1,11 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { getProvider } from "../brave-text-assistant/providers.mjs";
-
+import { mockChrome } from "./mock-chrome.mjs";
 class Element {
   constructor(id = "") {
-    this.id = id; this.value = ""; this.textContent = ""; this.disabled = false; this.hidden = false; this.type = "password"; this.children = []; this.listeners = {};
+    Object.assign(this, { id, value: "", textContent: "", disabled: false, hidden: false, type: "password", checked: false, children: [], listeners: {} });
     const classes = new Set(["hidden"]);
     this.classList = { add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c), toggle: (c, on) => on ? classes.add(c) : classes.delete(c) };
   }
@@ -14,78 +13,69 @@ class Element {
   replaceChildren() { this.children = []; }
   append(item) { this.children.push(item); }
   setAttribute(name, value) { this[name] = value; }
-  scrollIntoView() { this.scrolled = true; }
-  focus() {}
 }
 const html = await readFile(new URL("../brave-text-assistant/sidepanel.html", import.meta.url), "utf8");
 const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map((match) => [match[1], new Element(match[1])]));
-const state = { provider: "openai", profiles: {}, widgetEnabled: true };
-const messages = [];
-const permissions = new Set();
-let requests = 0;
-globalThis.document = { getElementById: (id) => elements[id], createElement: () => new Element(), querySelectorAll: () => [] };
-globalThis.requestAnimationFrame = (callback) => callback();
-globalThis.chrome = {
-  runtime: { sendMessage: async (message) => {
-    messages.push(message);
-    if (message.type === "GET_SETTINGS") return { ok: true, ...structuredClone(state) };
-    if (message.type === "SAVE_PROVIDER_SETTINGS") { state.provider = message.provider; state.profiles[message.provider] = { apiKey: message.apiKey, model: message.model }; }
-    if (message.type === "LIST_PROVIDER_MODELS") return { ok: true, models: [{ id: "gemini-first", label: "Gemini First" }] };
-    return { ok: true };
-  } },
-  permissions: {
-    contains: async ({ origins }) => origins.every((origin) => permissions.has(origin)),
-    request: async ({ origins }) => { requests += 1; origins.forEach((origin) => permissions.add(origin)); return true; }
-  }
+const env = mockChrome();
+globalThis.chrome = env.chrome;
+await import("../brave-text-assistant/service-worker.js");
+const sent = [];
+env.chrome.runtime.sendMessage = (message) => {
+  sent.push(message);
+  return new Promise((resolve) => env.listeners.message(message, { id: env.chrome.runtime.id, url: env.chrome.runtime.getURL("sidepanel.html") }, resolve));
 };
+globalThis.document = { getElementById: (id) => elements[id], createElement: () => new Element(), querySelectorAll: () => [] };
+globalThis.window = { scrollTo() {} };
 await import("../brave-text-assistant/sidepanel.js");
 const flush = () => new Promise(setImmediate);
 await flush();
-
-test("Configuração inicial abre e mostra instruções oficiais específicas para cada provedor", async () => {
+test("Aba inicial e salvamento padrão são claros e desligados", async () => {
   assert.equal(elements.settings.classList.contains("hidden"), false);
+  assert.equal(elements.rememberCredentials.checked, false);
   assert.equal(elements.getKeyLink.href, "https://platform.openai.com/api-keys");
-  elements.apiKey.value = "unsaved-openai";
-  elements.apiKey.fire("input");
-  elements.provider.value = "gemini";
-  await elements.provider.fire("change");
-  assert.equal(elements.getKeyLink.href, "https://aistudio.google.com/apikey");
-  assert.match(elements.apiKeyLabel.textContent, /Google AI Studio/);
-  assert.match(elements.modelHelp.textContent, /models\//);
-  assert.equal(elements.apiKey.value, "");
-  elements.provider.value = "openai";
-  await elements.provider.fire("change");
-  assert.equal(elements.apiKey.value, "unsaved-openai", "Alternar provedor não perde campos ainda não salvos");
-  elements.provider.value = "claude";
-  await elements.provider.fire("change");
-  assert.equal(elements.getKeyLink.href, "https://platform.claude.com/settings/keys");
 });
-
-test("Salvar persiste antes de pedir permissão e os campos continuam após autorizar", async () => {
-  elements.provider.value = "gemini";
-  await elements.provider.fire("change");
+test("Trocar de IA descarta dados não lembrados, inclusive rascunhos não conectados", async () => {
+  elements.apiKey.value = "unsaved-key";
+  elements.provider.value = "gemini"; await elements.provider.fire("change");
+  assert.equal(elements.apiKey.value, "");
+  assert.equal(elements.getKeyLink.href, "https://aistudio.google.com/apikey");
+  elements.provider.value = "openai"; await elements.provider.fire("change");
+  assert.equal(elements.apiKey.value, "");
+});
+test("Conectar usa sessão e a permissão não perde o campo", async () => {
+  elements.provider.value = "gemini"; await elements.provider.fire("change");
   elements.apiKey.value = "test-google-key";
-  elements.apiKey.fire("input");
   await elements.saveSettings.fire("click");
-  assert.equal(state.profiles.gemini.apiKey, "test-google-key");
-  assert.equal(requests, 0, "Salvar não abre permissão antes de persistir");
-  elements.authorizeProvider.fire("click");
-  await flush();
-  assert.equal(requests, 1);
+  assert.equal(env.state.providerProfiles.gemini, undefined);
+  assert.equal(env.sessionState.activeProviderProfile.apiKey, "test-google-key");
+  elements.authorizeProvider.fire("click"); await flush();
   assert.equal(elements.apiKey.value, "test-google-key");
 });
-
-test("Consultar modelos não gera texto e testar salva o modelo escolhido", async () => {
-  await elements.loadModels.fire("click");
-  assert.equal(elements.modelChoice.children[1].value, "gemini-first");
-  elements.modelChoice.value = "gemini-first";
-  elements.modelChoice.fire("change");
-  await elements.testProvider.fire("click");
-  assert.equal(state.profiles.gemini.model, "gemini-first");
-  const call = messages.findLast((message) => message.type === "TEST_PROVIDER");
-  assert.equal(call.provider, "gemini");
-  assert.equal(call.apiKey, undefined);
-  assert.match(elements.settingsStatus.textContent, /Conexão testada/);
-  assert.equal(getProvider("gemini").host, "https://generativelanguage.googleapis.com/*");
+test("Consulta usa chave da sessão, escolhe modelo e testa sem persistência implícita", async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async (url) => ({ ok: true, json: async () => url.includes(":generateContent")
+      ? { candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Teste." }] } }] }
+      : { models: [{ name: "models/gemini-3.6-flash", supportedGenerationMethods: ["generateContent"] }] }
+    });
+    await elements.loadModels.fire("click");
+    assert.equal(elements.modelChoice.children[1].value, "gemini-3.6-flash");
+    elements.modelChoice.value = "gemini-3.6-flash"; elements.modelChoice.fire("change");
+    await elements.testProvider.fire("click");
+    assert.match(elements.settingsStatus.textContent, /Conexão pronta/);
+    assert.equal(env.state.providerProfiles.gemini, undefined);
+    assert.equal(sent.findLast((message) => message.type === "TEST_PROVIDER").apiKey, undefined);
+  } finally { globalThis.fetch = original; }
+});
+test("Lembrar exige escolha explícita e permite recuperar o provedor depois", async () => {
+  elements.rememberCredentials.checked = true;
+  await elements.saveSettings.fire("click");
+  assert.equal(env.state.providerProfiles.gemini.rememberCredentials, true);
+  elements.provider.value = "openai"; await elements.provider.fire("change");
+  elements.provider.value = "gemini"; await elements.provider.fire("change");
+  assert.equal(elements.apiKey.value, "test-google-key");
+  assert.equal(elements.rememberCredentials.checked, true);
+  elements.rememberCredentials.checked = false; await elements.rememberCredentials.fire("change");
+  assert.equal(env.state.providerProfiles.gemini, undefined);
 });
 

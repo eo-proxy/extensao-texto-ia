@@ -1,28 +1,34 @@
 # Privacidade — Texto IA / GHS Studio
 
-A extensão usa a chave de API de cada usuário e envia revisões diretamente à OpenAI, Google ou Anthropic, conforme o provedor ativo. A GHS Studio não recebe chaves ou textos em servidor próprio.
+A extensão usa a chave da pessoa e envia a revisão diretamente à API escolhida: OpenAI, Google Gemini ou Anthropic. A GHS Studio não recebe chaves ou textos em servidor próprio.
 
-## Leitura e envio
+## Chaves: você decide se quer lembrar
 
-O assistente acompanha o campo ativo. Com geração automática ligada, envia o texto do campo, ou o trecho selecionado, e a instrução após uma pausa na digitação. O envio manual ocorre ao pedir uma sugestão. Não coleta o conteúdo completo das páginas nem o histórico de navegação.
+Lembrar chave neste dispositivo vem desligado. Nesse modo, os dados de conexão ficam apenas em chrome.storage.session, na memória do navegador. Eles continuam disponíveis ao fechar e reabrir o popup, mas são descartados ao trocar de IA ou encerrar o Brave.
 
-Consultar modelos envia a chave ao endpoint de modelos, sem o texto da página. Testar conexão envia apenas uma frase fixa e pode consumir a API.
+Marcar a opção e ativar a configuração permite guardar chave, modelo e modo da revisão no perfil local do Brave. Desmarcar remove a cópia permanente imediatamente, mantendo apenas a conexão ativa na sessão. Remover a extensão apaga o armazenamento da extensão. Revogue a chave também no provedor para invalidá-la definitivamente.
 
-## Armazenamento
+As configurações antigas que eram salvas automaticamente são removidas do armazenamento permanente na atualização. A conexão ativa pode continuar na memória até uma troca de provedor ou encerramento do navegador.
 
-São salvos no perfil local do Brave: chaves e modelos por provedor, provedor ativo, data do teste bem-sucedido e preferências do botão e da revisão. Os textos revisados não são gravados nesse armazenamento pela extensão; permanecem temporariamente na interface e no campo.
+O acesso ao armazenamento local e de sessão é restrito às páginas da extensão e ao service worker. Chaves lembradas não recebem criptografia adicional da aplicação. Quem tem acesso ao dispositivo/perfil pode acessar os dados locais.
 
-Não há sincronização implementada. O acesso é restrito ao service worker e às páginas da extensão. Os valores não recebem criptografia adicional da aplicação; quem tem acesso ao dispositivo ou perfil pode ter acesso aos dados locais.
+## Texto enviado
 
-## Controle
+Com revisão automática ligada, após 2,5 segundos sem digitar o campo ativo ou trecho selecionado e a instrução são enviados ao provedor ativo. O prazo é o início da chamada, não uma garantia do tempo de resposta. Retomar a digitação cancela a chamada e descarta a sugestão anterior.
 
-Você pode pausar a geração, desligar a aplicação automática, ocultar o botão e apagar cada chave. Remover a extensão apaga o armazenamento local. Para invalidar a credencial definitivamente, revogue-a no painel do provedor.
+A geração automática vem ligada depois da configuração. Aplicar sem confirmação vem desligado. Você pode pausar as revisões ou ocultar o robô. Campos de senha, códigos de acesso e cartão identificados por autocomplete são excluídos, assim como elementos marcados data-texto-ia-ignore. Informações sensíveis em campos comuns não são reconhecidas de forma infalível.
 
-A geração automática vem ligada após configurar a API. A aplicação automática, que substitui o texto sem confirmação, vem desligada.
+Não coleta o conteúdo completo das páginas ou o histórico de navegação. As revisões não são armazenadas no disco pela extensão; permanecem temporariamente na interface/campo e na memória da chamada.
 
-## Provedores
+## Modelos, teste e diagnóstico
 
-As revisões usam APIs oficiais e podem gerar cobrança na conta correspondente. Tratamento, retenção e limites dependem das condições e configurações do provedor. A extensão não promete que store:false ou a ausência de histórico local eliminem todos os registros mantidos pelo provedor.
+Consultar modelos envia a chave ao endpoint oficial da conta e filtra modelos de texto. Listar não comprova saldo, cota ou acesso de geração. Testar modelo usa uma frase fixa e pode ter cobrança.
 
-O projeto não implementa publicidade, analytics ou rastreamento de uso.
+O diagnóstico da sessão contém apenas provedor, modelo, horário, duração, código sanitizado e HTTP status. Não contém chaves, prompts, respostas, URL da página ou o erro bruto. Ele desaparece ao encerrar a sessão.
+
+## Provedor e cobrança
+
+A conta do provedor é responsável pelas cotas, pelo faturamento e pela retenção dos dados processados. A extensão não promete que store:false elimine todos os registros do provedor. Cancelar uma chamada não garante a reversão de processamento ou cobrança já iniciados.
+
+Não há publicidade, analytics, sincronização ou rastreamento de uso implementados.
 

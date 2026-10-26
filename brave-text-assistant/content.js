@@ -1,136 +1,106 @@
 (() => {
   if (window.__braveTextAssistantInstalled) return;
   window.__braveTextAssistantInstalled = true;
-
-  let activeElement = null;
-  let lastRange = null;
-
+  let activeElement = null, lastRange = null;
+  function isSensitive(element) {
+    if (element.closest?.("[data-texto-ia-ignore]")) return true;
+    return /(?:^|\s)(current-password|new-password|one-time-code|cc-\S+)(?:\s|$)/i.test(element.getAttribute?.("autocomplete") || "");
+  }
   function isEditable(element) {
-    if (!(element instanceof HTMLElement)) return false;
-    if (element.matches("textarea, input:not([type]), input[type=text], input[type=search], input[type=email], input[type=url], input[type=tel]")) {
-      return !element.disabled && !element.readOnly;
-    }
+    if (!(element instanceof HTMLElement) || isSensitive(element)) return false;
+    if (element.matches("textarea, input:not([type]), input[type=text], input[type=search], input[type=email], input[type=url], input[type=tel]")) return !element.disabled && !element.readOnly;
     return element.isContentEditable;
   }
-
   function editableTarget(element) {
     if (!isEditable(element)) return null;
     if (!element.isContentEditable) return element;
     let root = element;
     while (root.parentElement?.isContentEditable) root = root.parentElement;
-    return root;
+    return isSensitive(root) ? null : root;
   }
-
-  activeElement = editableTarget(document.activeElement);
-
-  function onFocus(event) {
+  function rangeBelongsTo(element, range) {
+    return Boolean(element && range && element.contains(range.startContainer) && element.contains(range.endContainer));
+  }
+  function track(event) {
     const target = editableTarget(event.target);
-    if (target) activeElement = target;
+    if (target) { if (target !== activeElement) lastRange = null; activeElement = target; }
   }
-  document.addEventListener("focusin", onFocus, true);
+  activeElement = editableTarget(document.activeElement);
+  document.addEventListener("focusin", track, true);
+  document.addEventListener("input", (event) => { if (event.isTrusted) track(event); }, true);
   document.addEventListener("selectionchange", () => {
-    if (activeElement?.isContentEditable) {
-      const selection = window.getSelection();
-      if (selection?.rangeCount) lastRange = selection.getRangeAt(0).cloneRange();
-    }
+    if (!activeElement?.isContentEditable) return;
+    const selection = window.getSelection();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+    lastRange = rangeBelongsTo(activeElement, range) ? range.cloneRange() : null;
   }, true);
-
   function readText() {
-    if (!isEditable(activeElement) || !activeElement.isConnected) {
-      activeElement = editableTarget(document.activeElement);
-    }
+    if (!isEditable(activeElement) || !activeElement.isConnected) activeElement = editableTarget(document.activeElement);
     if (!activeElement) throw new Error("Clique primeiro no campo de texto que deseja revisar.");
-
     if (activeElement.isContentEditable) {
       const selection = window.getSelection();
-      const selected = selection?.toString() || "";
-      if (selected.trim()) {
-        lastRange = selection.getRangeAt(0).cloneRange();
-        return { text: selected, selectedOnly: true };
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      if (rangeBelongsTo(activeElement, range) && selection.toString().trim()) {
+        lastRange = range.cloneRange();
+        return { text: selection.toString(), selectedOnly: true };
       }
       return { text: activeElement.innerText || activeElement.textContent || "", selectedOnly: false };
     }
-
-    const start = activeElement.selectionStart;
-    const end = activeElement.selectionEnd;
-    if (typeof start === "number" && end > start) {
-      return { text: activeElement.value.slice(start, end), selectedOnly: true, start, end };
-    }
+    const start = activeElement.selectionStart, end = activeElement.selectionEnd;
+    if (typeof start === "number" && end > start) return { text: activeElement.value.slice(start, end), selectedOnly: true, start, end };
     return { text: activeElement.value || "", selectedOnly: false, start: 0, end: (activeElement.value || "").length };
   }
-
   function setNativeValue(element, value) {
     const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     const setter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
-    if (setter) setter.call(element, value);
-    else element.value = value;
+    if (setter) setter.call(element, value); else element.value = value;
     element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText", data: value }));
     element.dispatchEvent(new Event("change", { bubbles: true }));
   }
-
   function applyText(text, snapshot, targetElement = activeElement, selectedRange = lastRange) {
-    if (!targetElement?.isConnected) throw new Error("O campo original não está mais disponível. Selecione-o novamente.");
-    if (typeof snapshot?.originalText === "string") {
-      let currentText;
-      if (targetElement.isContentEditable) {
-        currentText = snapshot.selectedOnly && selectedRange ? selectedRange.toString() : (targetElement.innerText || targetElement.textContent || "");
-      } else {
-        currentText = snapshot.selectedOnly
-          ? targetElement.value.slice(snapshot.start, snapshot.end)
-          : targetElement.value;
-      }
-      if (currentText !== snapshot.originalText) throw new Error("O texto mudou desde a sugestão. Gere uma nova versão antes de aplicar.");
-    }
+    if (typeof text !== "string" || !text.trim() || text.length > 32000) throw new Error("A sugestão não contém um texto válido.");
+    if (!targetElement?.isConnected || !isEditable(targetElement)) throw new Error("O campo original não está disponível para edição.");
+    if (targetElement.isContentEditable && snapshot?.selectedOnly && !rangeBelongsTo(targetElement, selectedRange)) throw new Error("A seleção original mudou. Gere outra sugestão.");
+    if (!targetElement.isContentEditable && snapshot?.selectedOnly && (!Number.isInteger(snapshot.start) || !Number.isInteger(snapshot.end) || snapshot.start < 0 || snapshot.end < snapshot.start || snapshot.end > targetElement.value.length)) throw new Error("A seleção original mudou. Gere outra sugestão.");
+    const current = targetElement.isContentEditable
+      ? snapshot?.selectedOnly ? selectedRange.toString() : targetElement.innerText || targetElement.textContent || ""
+      : snapshot?.selectedOnly ? targetElement.value.slice(snapshot.start, snapshot.end) : targetElement.value;
+    if (typeof snapshot?.originalText !== "string" || current !== snapshot.originalText) throw new Error("O texto mudou desde a sugestão. Gere uma nova versão.");
     activeElement = targetElement;
     targetElement.focus();
     if (targetElement.isContentEditable) {
       const selection = window.getSelection();
-      if (snapshot?.selectedOnly && selectedRange) {
-        selection.removeAllRanges();
-        selection.addRange(selectedRange);
-      } else {
-        const range = document.createRange();
-        range.selectNodeContents(targetElement);
-        selection.removeAllRanges();
-        selection.addRange(range);
-      }
+      const range = snapshot.selectedOnly ? selectedRange : document.createRange();
+      if (!snapshot.selectedOnly) range.selectNodeContents(targetElement);
+      selection.removeAllRanges(); selection.addRange(range);
       if (!document.execCommand("insertText", false, text)) {
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(document.createTextNode(text));
+        range.deleteContents(); range.insertNode(document.createTextNode(text));
+        range.collapse(false); selection.removeAllRanges(); selection.addRange(range);
         targetElement.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertReplacementText", data: text }));
       }
     } else {
-      const start = snapshot?.start ?? 0;
-      const end = snapshot?.end ?? targetElement.value.length;
-      const before = targetElement.value.slice(0, start);
-      const after = targetElement.value.slice(end);
-      setNativeValue(targetElement, before + text + after);
-      try { targetElement.setSelectionRange(start + text.length, start + text.length); }
-      catch (_) { /* Alguns tipos de input não aceitam seleção programática. */ }
+      const start = snapshot.selectedOnly ? snapshot.start : 0;
+      const end = snapshot.selectedOnly ? snapshot.end : targetElement.value.length;
+      setNativeValue(targetElement, targetElement.value.slice(0, start) + text + targetElement.value.slice(end));
+      try { targetElement.setSelectionRange(start + text.length, start + text.length); } catch (_) {}
     }
   }
-
   window.__braveTextAssistantApi = {
-    readText,
-    applyText,
-    getActiveElement: () => activeElement,
+    readText, applyText, isEditable, getActiveElement: () => activeElement,
     getLastRange: () => lastRange?.cloneRange() || null,
-    isAutoEditable: (element) => element instanceof HTMLTextAreaElement || Boolean(element?.isContentEditable)
+    isAutoEditable: (element) => {
+      const target = editableTarget(element);
+      return target instanceof HTMLTextAreaElement || Boolean(target?.isContentEditable);
+    }
   };
-
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!["READ_ACTIVE_TEXT", "APPLY_TEXT"].includes(message?.type)) return;
     try {
-      if (message?.type === "READ_ACTIVE_TEXT") sendResponse({ ok: true, ...readText() });
-      if (message?.type === "APPLY_TEXT") {
-        applyText(message.text, message.snapshot);
-        sendResponse({ ok: true });
-      }
-    } catch (error) {
-      sendResponse({ ok: false, error: error.message });
-    }
+      if (message.type === "READ_ACTIVE_TEXT") sendResponse({ ok: true, ...readText() });
+      else { applyText(message.text, message.snapshot); sendResponse({ ok: true }); }
+    } catch (error) { sendResponse({ ok: false, error: error.message }); }
     return true;
   });
 })();
+
 

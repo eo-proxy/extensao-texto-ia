@@ -9,10 +9,10 @@ export const PROVIDERS = Object.freeze({
     steps: [
       "Abra a plataforma OpenAI e crie uma chave de API no seu projeto.",
       "Confira os créditos ou o faturamento da API e as permissões da chave para gerar texto.",
-      "Salve a chave abaixo, autorize o acesso, consulte os modelos e escolha um modelo de texto."
+      "Clique em Usar esta IA, autorize o acesso e consulte os modelos. Lembrar a chave é opcional."
     ],
     note: "Esta integração usa a API OpenAI. Confira acesso e cobrança na plataforma; entrar no ChatGPT não configura esta extensão.",
-    modelNote: "A lista mostra candidatos de texto. Ela não confirma saldo nem compatibilidade com a geração; use Testar conexão. Chaves restritas podem exigir que você informe o ID manualmente."
+    modelNote: "Modelos de texto retornados pela API da sua conta. A lista não confirma saldo ou cota; use Testar modelo. Chaves restritas podem exigir o ID manual."
   },
   gemini: {
     name: "Google Gemini", host: "https://generativelanguage.googleapis.com/*", baseUrl: "https://generativelanguage.googleapis.com/v1beta/",
@@ -23,10 +23,10 @@ export const PROVIDERS = Object.freeze({
     steps: [
       "No Google AI Studio, abra API Keys e crie uma chave no projeto Google Cloud escolhido.",
       "Se seu projeto não aparecer, importe-o na área Projects do AI Studio e confira as permissões para criar chaves.",
-      "Salve a chave, autorize o acesso e consulte os modelos. A lista inclui modelos Gemini compatíveis com generateContent."
+      "Clique em Usar esta IA, autorize o acesso e consulte modelos Gemini compatíveis com revisão de texto."
     ],
     note: "Usa a Gemini Developer API do AI Studio. Não exige arquivo JSON nem configuração do Vertex AI. Cotas, disponibilidade e cobrança dependem do projeto e do modelo; chaves antigas sem restrição podem ser recusadas pelo Google.",
-    modelNote: "O prefixo models/ é aceito e ajustado automaticamente. O projeto é o associado à chave; não é necessário preencher um Project ID aqui."
+    modelNote: "Para revisão rápida, prefira um Flash ou Flash-Lite estável. O prefixo models/ é aceito. Cota e disponibilidade dependem do modelo e do projeto da chave."
   },
   claude: {
     name: "Anthropic Claude", host: "https://api.anthropic.com/*", baseUrl: "https://api.anthropic.com/v1/",
@@ -37,7 +37,7 @@ export const PROVIDERS = Object.freeze({
     steps: [
       "Na Claude Console, abra API Keys e crie uma chave para o workspace que você deseja usar.",
       "Confira os créditos, limites e o acesso aos modelos nesse workspace.",
-      "Salve a chave, autorize o acesso e consulte os modelos Claude. Depois teste a conexão."
+      "Clique em Usar esta IA, autorize o acesso e consulte os modelos Claude. Depois teste o modelo."
     ],
     note: "Usa a Claude API direta com a Messages API. A conta do aplicativo Claude não configura a API nesta extensão. A cobrança e os limites são os da Claude Console.",
     modelNote: "Escolha um modelo retornado pela sua chave. Chaves de AWS Bedrock ou Google Vertex AI não são aceitas nesta integração."
@@ -65,4 +65,5 @@ export function validateKey(value) {
   if (key.length > 4096 || /\s|[\x00-\x1f\x7f]/.test(key)) throw new Error("A chave contém espaços ou caracteres inválidos. Cole somente a chave.");
   return key;
 }
+
 

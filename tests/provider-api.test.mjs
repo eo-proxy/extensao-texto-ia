@@ -120,9 +120,9 @@ for (const [status, code, expected] of [
   [401, "invalid_api_key", /chave inválida/],
   [403, "PERMISSION_DENIED", /acesso negado/],
   [404, "NOT_FOUND", /modelo indisponível/],
-  [429, "RESOURCE_EXHAUSTED", /limite ou cota/],
+  [429, "RESOURCE_EXHAUSTED", /limite de chamadas/],
   [429, "insufficient_quota", /créditos/],
-  [503, "UNAVAILABLE", /temporariamente indisponível/]
+  [503, "UNAVAILABLE", /temporariamente sobrecarregado/]
 ]) {
   test("Erros HTTP " + status + "/" + code + " orientam sem expor chave", async () => {
     globalThis.fetch = async () => respond({ error: { code, message: "raw test-gemini-key must stay private" } }, status);
@@ -139,7 +139,7 @@ test("Validação rejeita URL no ID, chave com quebra de linha e entradas invál
   assert.equal(normalizeModel("gemini", "models/gemini-test"), "gemini-test");
   assert.throws(() => normalizeModel("gemini", "https://outro.local/modelo"), /apenas o ID/);
   assert.throws(() => validateKey("uma\nchave"), /caracteres inválidos/);
-  await assert.rejects(rewriteWithProvider({ ...settings("openai"), model: "" }, "Texto"), /Selecione um modelo/);
+  await assert.rejects(rewriteWithProvider({ ...settings("openai"), model: "" }, "Texto"), /Escolha um modelo/);
   await assert.rejects(rewriteWithProvider(settings("claude"), "x".repeat(4001)), /4.000/);
   await assert.rejects(rewriteWithProvider(settings("claude"), { text: "Objeto" }), /texto no campo/);
 });
@@ -149,5 +149,49 @@ test("Abort e resposta não JSON produzem orientação sem conteúdo bruto", asy
   await assert.rejects(rewriteWithProvider(settings("openai"), "Texto"), /demorou demais/);
   globalThis.fetch = async () => ({ ok: true, json: async () => { throw new Error("segredo"); } });
   await assert.rejects(rewriteWithProvider(settings("claude"), "Texto"), /resposta inválida/);
+});
+
+
+test("Gemini 3.6 Flash usa raciocínio mínimo no modo rápido e respeita o modo padrão", async () => {
+  const configs = [];
+  globalThis.fetch = async (_url, options) => {
+    configs.push(JSON.parse(options.body).generationConfig);
+    return respond({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Revisado" }] } }] });
+  };
+  await rewriteWithProvider({ ...settings("gemini"), model: "gemini-3.6-flash", geminiSpeed: "fast" }, "Texto");
+  await rewriteWithProvider({ ...settings("gemini"), model: "gemini-3.6-flash", geminiSpeed: "standard" }, "Texto");
+  assert.equal(configs[0].thinkingConfig.thinkingLevel, "minimal");
+  assert.equal(configs[1].thinkingConfig, undefined);
+});
+test("Gemini 2.5 e modelo desconhecido não recebem parâmetro thinkingLevel incompatível", async () => {
+  const configs = [];
+  globalThis.fetch = async (_url, options) => {
+    configs.push(JSON.parse(options.body).generationConfig);
+    return respond({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Revisado" }] } }] });
+  };
+  await rewriteWithProvider({ ...settings("gemini"), model: "gemini-2.5-flash" }, "Texto");
+  await rewriteWithProvider({ ...settings("gemini"), model: "gemini-unknown" }, "Texto");
+  assert.equal(configs[0].thinkingConfig.thinkingBudget, 0);
+  assert.equal(configs[1].thinkingConfig, undefined);
+});
+test("Lista filtra especialistas, versões duplicadas e experimentais por padrão", async () => {
+  globalThis.fetch = async () => respond({ data: [
+    { id: "gpt-5-mini" }, { id: "gpt-5-mini-2026-01-01" },
+    { id: "gpt-5-codex" }, { id: "gpt-5-search" }, { id: "gpt-preview" }, { id: "gpt-image" }
+  ] });
+  assert.deepEqual((await listProviderModels(settings("openai"))).models.map((model) => model.id), ["gpt-5-mini"]);
+  assert.deepEqual((await listProviderModels(settings("openai"), { includeExperimental: true })).models.map((model) => model.id), ["gpt-5-mini", "gpt-preview"]);
+});
+test("Cancelamento externo chega ao fetch sem vazar a mensagem bruta", async () => {
+  const controller = new AbortController();
+  let signal;
+  globalThis.fetch = async (_url, options) => {
+    signal = options.signal;
+    return new Promise((_, reject) => signal.addEventListener("abort", () => reject(Object.assign(new Error("segredo"), { name: "AbortError" }))));
+  };
+  const pending = rewriteWithProvider(settings("gemini"), "Texto", "", { signal: controller.signal });
+  controller.abort();
+  await assert.rejects(pending, (error) => error.code === "CANCELLED");
+  assert.equal(signal.aborted, true);
 });
 
