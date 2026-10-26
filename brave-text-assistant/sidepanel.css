@@ -1,0 +1,65 @@
+:root { color-scheme: dark; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #ecf4ff; background: #091321; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; width: 380px; max-height: 580px; overflow-y: auto; }
+main { max-width: 620px; margin: 0 auto; padding: 17px 16px 16px; }
+header { display: flex; align-items: center; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid #253a55; }
+.brand-logo { display: block; width: 211px; height: 64px; object-fit: contain; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+.icon-button { margin-left: auto; width: 37px; height: 37px; border: 1px solid #3a5578; border-radius: 10px; background: #172940; color: #c6dcf7; font-size: 18px; cursor: pointer; }
+.icon-button:hover { background: #213957; }
+.editor { padding-top: 18px; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 9px; }
+h2 { margin: 0; font-size: 13px; font-weight: 700; color: #eff6ff; }
+.hint, .small-note { color: #9cb0ca; font-size: 11px; line-height: 1.5; }
+.chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 11px 0; }
+.chip { border: 1px solid #344d6b; background: #14253b; color: #bad0ed; border-radius: 999px; padding: 7px 10px; font-size: 11px; cursor: pointer; }
+.chip.active { background: #173b6b; border-color: #438eee; color: #e7f2ff; }
+textarea, input, select { width: 100%; border: 1px solid #354b68; border-radius: 10px; background: #101f33; padding: 11px 12px; color: #f0f7ff; font: inherit; font-size: 12px; outline: none; }
+textarea { resize: vertical; line-height: 1.55; }
+textarea:focus, input:focus, select:focus { border-color: #66adff; box-shadow: 0 0 0 3px #1a4272; }
+.primary, .secondary { border-radius: 10px; padding: 11px 13px; font: inherit; font-size: 12px; font-weight: 650; cursor: pointer; }
+.primary { width: 100%; margin-top: 13px; border: 1px solid #4c9cf8; background: #2879df; color: #fff; }
+.primary:hover { background: #358cf4; }
+.primary:disabled { opacity: .55; cursor: wait; }
+.secondary { border: 1px solid #3b5574; background: #182b44; color: #e4f0ff; }
+.secondary:hover { background: #213a59; }
+.small-note { margin-top: 8px; }
+.text-wrap { margin-top: 20px; }
+.text-box { max-height: 190px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #304762; border-radius: 10px; background: #101f33; padding: 12px; font-size: 12px; line-height: 1.55; color: #d6e6fa; }
+.badge { border-radius: 999px; background: #19385f; color: #b4d6ff; padding: 5px 8px; font-size: 10px; }
+.actions { display: flex; gap: 8px; margin-top: 9px; }
+.actions .primary { margin: 0; flex: 1; }
+.actions .secondary { flex: 0 0 auto; }
+.status { min-height: 17px; margin-top: 9px; color: #a9bdd5; font-size: 11px; line-height: 1.5; }
+.status.error { color: #ff9d9d; }
+.settings { margin-top: 18px; border: 1px solid #2d4461; border-radius: 14px; background: #102036; padding: 15px; }
+.settings label { display: block; margin-top: 12px; color: #b6cbe6; font-size: 11px; font-weight: 650; }
+.settings input, .settings select { display: block; margin-top: 6px; }
+.settings .primary { margin-top: 12px; }
+.text-button { padding: 4px; border: 0; background: transparent; color: #82bdff; font: inherit; font-size: 11px; cursor: pointer; }
+.danger { display: block; margin: 10px auto 0; color: #ff9d9d; }
+.notice { display: grid; gap: 9px; margin-top: 15px; padding: 13px; border: 1px solid #2c527e; border-radius: 13px; background: #112841; font-size: 12px; }
+.notice strong { color: #ddecff; }
+.notice span { color: #b5cbe5; line-height: 1.5; }
+.visibility-control { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding: 12px 13px; border: 1px solid #304a6a; border-radius: 12px; background: #102036; cursor: pointer; }
+.visibility-control span { display: grid; gap: 3px; }
+.visibility-control strong { font-size: 12px; color: #edf5ff; }
+.visibility-control small { font-size: 10px; line-height: 1.4; color: #9fb8d7; }
+.visibility-control input { width: 18px; height: 18px; margin: 0; padding: 0; accent-color: #4d9cf6; cursor: pointer; }
+footer { display: flex; justify-content: space-between; margin-top: 20px; padding-top: 12px; border-top: 1px solid #253a55; color: #8ea9c8; font-size: 10px; }
+.hidden { display: none !important; }
+.provider-guide { margin-top: 15px; padding: 12px; border: 1px solid #304f73; border-radius: 11px; background: #0c1a2e; }
+.provider-guide h3 { margin: 0; font-size: 12px; color: #e7f2ff; }
+.provider-guide ol { margin: 10px 0; padding-left: 18px; color: #b8cee8; font-size: 11px; line-height: 1.6; }
+.provider-guide li + li { margin-top: 7px; }
+.guide-links { display: grid; gap: 8px; }
+.guide-links a { color: #91c4ff; font-size: 11px; text-decoration: underline; cursor: pointer; }
+.key-field { display: flex; align-items: center; gap: 7px; }
+.key-field input { flex: 1; min-width: 0; }
+.key-field button { flex-shrink: 0; }
+.settings-action { width: 100%; margin-top: 10px; }
+.provider-actions button { flex: 1; padding: 10px 6px; font-size: 11px; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.settings .status { overflow-wrap: anywhere; }
+a:focus-visible, button:focus-visible { outline: 2px solid #79baff; outline-offset: 3px; }
+[hidden] { display: none !important; }

@@ -1,0 +1,10 @@
+work/
+node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crx
+*.log
+.DS_Store

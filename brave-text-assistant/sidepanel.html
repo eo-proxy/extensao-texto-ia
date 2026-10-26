@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Texto IA — GHS Studio</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img class="brand-logo" src="assets/texto-ia-logo.svg" alt="Texto IA, criado por GHS Studio">
+      <h1 class="sr-only">Texto IA — GHS Studio</h1>
+      <button id="settingsToggle" class="icon-button" aria-label="Configurações" title="Configurações">⚙</button>
+    </header>
+
+    <section id="setupNotice" class="notice hidden">
+      <strong id="setupTitle">Configure sua IA para começar</strong>
+      <span id="setupDescription">Escolha um provedor e informe sua chave de API. Ela fica salva apenas nesta extensão.</span>
+      <button id="setupButton" class="secondary">Configurar provedor</button>
+    </section>
+
+    <section class="notice">
+      <strong>Agora funciona direto na página</strong>
+      <span>Procure o botão quadrado com o robô no site. Arraste-o para mover. Após uma pausa na digitação, a sugestão aparece ali para você revisar.</span>
+    </section>
+
+    <label class="visibility-control" for="widgetEnabled">
+      <span><strong>Mostrar botão flutuante</strong><small>Você pode ocultá-lo e ativá-lo novamente aqui.</small></span>
+      <input id="widgetEnabled" type="checkbox" checked>
+    </label>
+
+    <section class="editor">
+      <div class="section-heading"><h2>Instrução</h2><span class="hint">O que você quer melhorar?</span></div>
+      <div class="chips" role="group" aria-label="Sugestões de instrução">
+        <button class="chip active" data-instruction="Torne o texto mais claro e profissional, sem mudar o significado.">Mais profissional</button>
+        <button class="chip" data-instruction="Reescreva o texto em linguagem mais técnica e precisa, sem inventar informações.">Mais técnico</button>
+        <button class="chip" data-instruction="Corrija gramática, ortografia e pontuação, preservando o estilo original.">Corrigir</button>
+      </div>
+      <textarea id="instruction" rows="2" aria-label="Instrução personalizada">Torne o texto mais claro e profissional, sem mudar o significado.</textarea>
+
+      <button id="readButton" class="primary">Ler campo ativo</button>
+      <div class="small-note">Clique primeiro no campo que deseja revisar. Se selecionar um trecho, só ele será enviado.</div>
+
+      <div id="sourceWrap" class="text-wrap hidden">
+        <div class="section-heading"><h2>Texto selecionado</h2><button id="clearButton" class="text-button">Limpar</button></div>
+        <div id="sourceText" class="text-box"></div>
+      </div>
+
+      <button id="rewriteButton" class="primary hidden">Gerar sugestão</button>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+
+      <div id="suggestionWrap" class="text-wrap hidden">
+        <div class="section-heading"><h2>Sugestão</h2><span class="badge">Revise antes de aplicar</span></div>
+        <textarea id="suggestion" rows="7" aria-label="Sugestão editável"></textarea>
+        <div class="actions">
+          <button id="applyButton" class="primary">Aplicar ao campo</button>
+          <button id="discardButton" class="secondary">Descartar</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="settings" class="settings hidden" aria-labelledby="settingsHeading">
+      <div class="section-heading"><h2 id="settingsHeading">Sua IA</h2><button id="closeSettings" class="text-button">Fechar</button></div>
+      <label>Provedor
+        <select id="provider">
+          <option value="openai">OpenAI (GPT)</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="claude">Anthropic Claude</option>
+        </select>
+      </label>
+      <div class="provider-guide">
+        <h3 id="providerGuideTitle">Configurar sua IA</h3>
+        <ol id="providerSteps"></ol>
+        <div class="guide-links">
+          <a id="getKeyLink" target="_blank" rel="noopener noreferrer">Criar chave</a>
+          <a id="providerDocsLink" target="_blank" rel="noopener noreferrer">Documentação oficial ↗</a>
+        </div>
+        <p id="providerNote" class="small-note"></p>
+      </div>
+      <label for="apiKey" id="apiKeyLabel">Chave de API</label>
+      <div class="key-field">
+        <input id="apiKey" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" placeholder="Cole somente a chave de API">
+        <button id="showKey" class="text-button" type="button" aria-label="Mostrar ou ocultar a chave de API" aria-pressed="false">Mostrar</button>
+      </div>
+      <label for="model">ID do modelo</label>
+      <input id="model" autocomplete="off" spellcheck="false" autocapitalize="none" aria-describedby="modelHelp" placeholder="Consulte os modelos ou informe o ID">
+      <div id="modelHelp" class="small-note"></div>
+      <button id="saveSettings" class="primary">Salvar e usar este provedor</button>
+      <button id="authorizeProvider" class="secondary settings-action" type="button" disabled>Autorizar acesso no Brave</button>
+      <p id="permissionHint" class="small-note"></p>
+      <div class="actions provider-actions">
+        <button id="loadModels" class="secondary" type="button" disabled>Consultar modelos</button>
+        <button id="testProvider" class="secondary" type="button" disabled>Testar conexão</button>
+      </div>
+      <div id="modelChoiceWrap" class="hidden">
+        <label for="modelChoice">Modelos encontrados na sua conta</label>
+        <select id="modelChoice"><option value="">Consulte os modelos primeiro</option></select>
+      </div>
+      <p class="small-note">Testar conexão salva os campos e envia apenas uma frase de exemplo à IA. Esse teste usa a API e pode ter cobrança. A consulta de modelos não confirma saldo nem cota para gerar texto.</p>
+      <div id="settingsStatus" class="status" role="status" aria-live="polite"></div>
+      <button id="forgetKey" class="text-button danger">Apagar chave deste provedor</button>
+      <p class="small-note">Cada pessoa usa sua própria chave. As configurações dos três provedores são salvas separadamente neste perfil do Brave. Ao salvar ou testar, o provedor selecionado passa a ser usado nas revisões.</p>
+      <p class="small-note">As chaves ficam no armazenamento local da extensão, sem sincronização. O texto é enviado diretamente ao provedor ativo. Você pode pausar as sugestões automáticas pelo botão do robô.</p>
+    </section>
+
+    <footer><span id="providerLabel">Nenhum provedor configurado</span><span>GHS Studio · v0.5.0</span></footer>
+  </main>
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>
+
