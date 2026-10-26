@@ -70,23 +70,26 @@
       <div class="section-heading key-heading"><label class="step-label" for="apiKey" id="apiKeyLabel">2 · Chave da API</label><a id="getKeyLink" target="_blank" rel="noopener noreferrer">Criar chave ↗</a></div>
       <div class="key-field"><input id="apiKey" maxlength="4096" type="password" autocomplete="off" spellcheck="false" autocapitalize="none"><button id="showKey" class="text-button" type="button" aria-pressed="false" aria-label="Mostrar ou ocultar chave">Mostrar</button></div>
       <label class="remember-row" for="rememberCredentials"><input id="rememberCredentials" type="checkbox"><span><strong>Lembrar chave neste dispositivo</strong><small>Mantenha sua chave para a próxima vez.</small></span></label>
+      <button id="authorizeProvider" class="secondary full" type="button" disabled>Autorizar acesso</button>
+      <p id="permissionHint" class="small-note"></p>
       <label class="step-label" for="model">3 · Escolha um modelo de texto</label>
       <div id="modelChoiceWrap" class="hidden"><label class="sr-only" for="modelChoice">Modelos da sua conta</label><select id="modelChoice"><option value="">Consulte os modelos</option></select></div>
       <input id="model" maxlength="200" autocomplete="off" spellcheck="false" autocapitalize="none" aria-label="ID do modelo" aria-describedby="modelHelp" placeholder="Consulte os modelos ou informe um ID">
+      <button id="loadModels" class="secondary full" type="button" disabled>Consultar modelos</button>
+      <div class="connection-test-row">
+        <div id="connectionDiagnostic" class="diagnostic" role="status" aria-live="polite"><strong id="diagnosticTitle">Conexão e diagnóstico</strong><p id="lastDiagnostic" class="small-note"></p></div>
+        <button id="testProvider" class="secondary test-connection" type="button" disabled><svg class="wifi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M2 8.8a16 16 0 0 1 20 0M5.3 12.2a11 11 0 0 1 13.4 0M8.7 15.6a5.6 5.6 0 0 1 6.6 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg><span>Testar Conexão</span></button>
+      </div>
+      <div id="settingsStatus" class="status" role="status" aria-live="polite"></div>
       <p id="modelHelp" class="small-note"></p>
+      <label class="compact-check" for="includeExperimental"><input id="includeExperimental" type="checkbox">Incluir modelos experimentais na consulta</label>
+      <p class="small-note">A lista mostra os modelos de texto da sua conta. O teste de conexão pode consumir créditos.</p>
       <div id="geminiOptions" class="gemini-options hidden">
         <label for="geminiSpeed">Velocidade da revisão</label>
         <select id="geminiSpeed"><option value="fast">Rápido — recomendado para revisar</option><option value="standard">Padrão do modelo</option></select>
         <p class="small-note">Reduz o raciocínio nos modelos compatíveis. Para gemini-3.6-flash, usa o nível mínimo. Flash e Flash-Lite são opções voltadas a respostas rápidas; prefira versões estáveis disponíveis na sua conta.</p>
       </div>
-      <button id="saveSettings" class="primary full">Usar esta IA</button>
-      <button id="authorizeProvider" class="secondary full" type="button" disabled>Autorizar acesso</button>
-      <p id="permissionHint" class="small-note"></p>
-      <div class="actions"><button id="loadModels" class="secondary" disabled>Consultar modelos</button><button id="testProvider" class="primary" disabled>Testar modelo</button></div>
-      <label class="compact-check" for="includeExperimental"><input id="includeExperimental" type="checkbox">Incluir modelos experimentais na consulta</label>
-      <p class="small-note">A lista vem da API da sua conta e filtra funções que não servem à revisão. O teste confirma a geração com uma frase de exemplo e pode consumir créditos.</p>
-      <div id="settingsStatus" class="status" role="status" aria-live="polite"></div>
-      <div id="connectionDiagnostic" class="diagnostic" role="status" aria-live="polite"><strong id="diagnosticTitle">Conexão e diagnóstico</strong><p id="lastDiagnostic" class="small-note"></p></div>
+      <button id="saveSettings" class="primary save-button full" type="button">Salvar</button>
       <section class="disconnect-card" aria-labelledby="disconnectTitle">
         <div class="disconnect-heading"><span class="disconnect-symbol" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg></span><h2 id="disconnectTitle">Encerrar conexão</h2></div>
         <p>Desconecte esta IA e remova sua chave.</p>
@@ -94,13 +97,8 @@
       </section>
       <p class="privacy-note">A chave é enviada só ao provedor escolhido. Sem a opção de lembrar, ela fica na memória da sessão até trocar de IA ou encerrar o navegador. Cada provedor tem suas próprias cotas e cobranças.</p>
     </section>
-    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.6.2</span></footer>
+    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.6.3</span></footer>
   </main>
   <script type="module" src="sidepanel.js"></script>
 </body>
 </html>
-
-
-
-
-

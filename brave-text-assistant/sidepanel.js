@@ -40,7 +40,7 @@ function updateButtons() {
   for (const id of ["provider", "apiKey", "model", "modelChoice", "saveSettings", "forgetKey", "rememberCredentials", "geminiSpeed", "includeExperimental"]) $(id).disabled = settingsBusy;
   $("permissionHint").textContent = permissionGranted
     ? "Acesso autorizado."
-    : "Clique em Usar esta IA para preparar a conexão. Depois autorize o acesso.";
+    : "Clique em Salvar para preparar a conexão. Depois autorize o acesso.";
 }
 function setBusy(value) { settingsBusy = value; updateButtons(); }
 function renderModelCatalog() {
@@ -135,7 +135,7 @@ for (const id of ["apiKey", "model"]) $(id).addEventListener("input", () => {
   setSettingsStatus(""); updateButtons();
 });
 $("rememberCredentials").addEventListener("change", async () => {
-  if ($("rememberCredentials").checked) { setSettingsStatus("A chave será lembrada depois de clicar em Usar esta IA."); return; }
+  if ($("rememberCredentials").checked) { setSettingsStatus("A chave será lembrada depois de clicar em Salvar."); return; }
   if (!profiles[selectedProvider]?.rememberCredentials) return;
   setBusy(true);
   try {
@@ -148,7 +148,7 @@ $("rememberCredentials").addEventListener("change", async () => {
 });
 $("modelChoice").addEventListener("change", () => {
   if ($("modelChoice").value) $("model").value = $("modelChoice").value;
-  setSettingsStatus("Modelo escolhido. Clique em Usar esta IA ou Testar modelo."); updateButtons();
+  setSettingsStatus("Modelo escolhido. Clique em Salvar ou Testar Conexão."); updateButtons();
 });
 $("showKey").addEventListener("click", () => {
   const visible = $("apiKey").type === "password";
@@ -166,10 +166,10 @@ $("saveSettings").addEventListener("click", async () => {
   setBusy(true);
   try {
     await useCurrent();
-    setSettingsStatus(!permissionGranted ? "Conexão preparada. Autorize o acesso no botão abaixo."
+    setSettingsStatus(!permissionGranted ? "Conexão preparada. Clique em Autorizar acesso acima."
       : !$("model").value ? "Chave pronta para uso. Consulte e escolha um modelo."
-      : $("rememberCredentials").checked ? "Configuração lembrada. Teste o modelo para confirmar a conexão."
-      : "Configuração ativada nesta sessão. Teste o modelo para confirmar a conexão.");
+      : $("rememberCredentials").checked ? "Configuração lembrada. Clique em Testar Conexão para confirmar."
+      : "Configuração ativada nesta sessão. Clique em Testar Conexão para confirmar.");
   } catch (error) { setSettingsStatus(error.message, true); }
   finally { setBusy(false); }
 });
@@ -187,12 +187,12 @@ $("loadModels").addEventListener("click", async () => {
     await useCurrent();
     const response = await send({ type: "LIST_PROVIDER_MODELS", provider: selectedProvider, includeExperimental: $("includeExperimental").checked });
     modelCatalog = response.models; renderModelCatalog();
-    setSettingsStatus(response.models.length + " modelos de texto encontrados. Selecione um abaixo e teste.");
+    setSettingsStatus(response.models.length + " modelos de texto encontrados. Escolha um na lista acima e teste a conexão.");
   } catch (error) { setSettingsStatus(error.message, true); }
   finally { setBusy(false); }
 });
 $("testProvider").addEventListener("click", async () => {
-  setBusy(true); setSettingsStatus("Testando o modelo com uma frase de exemplo…");
+  setBusy(true); setSettingsStatus("Testando a conexão com uma frase de exemplo…");
   try {
     await useCurrent();
     const response = await send({ type: "TEST_PROVIDER", provider: selectedProvider });
@@ -295,6 +295,3 @@ document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("clic
 }));
 
 loadSettings(true).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));
-
-
-

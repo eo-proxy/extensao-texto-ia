@@ -1,6 +1,6 @@
 # Texto IA — GHS Studio
 
-Extensão **0.6.2** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+Extensão **0.6.3** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
 
 ## Interface
 
@@ -33,5 +33,3 @@ Node.js 22 ou mais recente, sem dependências npm.
 - npm test: verifica as integrações, sessão, cancelamento, segurança e estados visuais com respostas simuladas.
 
 Para gerar o pacote no PowerShell: Compress-Archive -Path brave-text-assistant -DestinationPath texto-ia.zip -Force.
-
-

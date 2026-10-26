@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.6.2
+# Texto IA — GHS Studio · 0.6.3
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -16,11 +16,11 @@ Remover a extensão apaga seu armazenamento. O ZIP não contém chaves ou dados 
 
 1. Escolha OpenAI, Gemini ou Claude. O link Criar chave abre o painel oficial correspondente; as instruções detalhadas ficam em Como conectar.
 2. Cole sua chave. Marque Lembrar chave neste dispositivo somente se quiser guardá-la no perfil local.
-3. Clique em Usar esta IA. O modelo pode ficar vazio na primeira etapa.
+3. Clique em Salvar, acima da área Encerrar conexão. O modelo pode ficar vazio na primeira etapa.
 4. Se necessário, clique em Autorizar acesso. A conexão já foi preparada na sessão antes do aviso, que pode fechar a janela.
-5. Consulte os modelos e escolha um modelo de texto da conta, ou informe um ID manualmente.
-6. Clique em Usar esta IA para ativar, ou em Testar modelo para ativar e confirmar uma geração com frase de exemplo. O teste pode consumir créditos.
-7. O cabeçalho fica verde com Conectado depois de uma confirmação válida. Sem confirmação ou após falha atual, mostra Desconectado em vermelho. O diagnóstico da conexão atual fica verde em sucesso e vermelho em falha.
+5. Use Consultar modelos, logo abaixo do campo de modelo, e escolha uma opção da conta, ou informe um ID manualmente.
+6. Clique em Salvar para ativar, ou em Testar Conexão para ativar e confirmar uma geração com frase de exemplo. O teste pode consumir créditos.
+7. O botão Testar Conexão fica ao lado do diagnóstico. O cabeçalho fica verde com Conectado depois de uma confirmação válida. Sem confirmação ou após falha atual, mostra Desconectado em vermelho. O diagnóstico da conexão atual fica verde em sucesso e vermelho em falha.
 
 As APIs de modelos nem sempre confirmam permissão de geração, saldo ou cota. Não é possível comprovar isso apenas pela lista. O teste real confirma somente que o modelo respondeu naquele momento.
 
@@ -32,7 +32,7 @@ Não há retenção de rascunhos de chave/modelo ao alternar o seletor. As confi
 
 ### Lembrar a chave — opcional
 
-Marque Lembrar chave neste dispositivo e clique em Usar esta IA. Os perfis lembrados ficam separados por provedor no perfil do Brave. Desmarcar remove a cópia permanente imediatamente e mantém apenas a conexão ativa da sessão. Desconectar e apagar chave remove ambas as cópias.
+Marque Lembrar chave neste dispositivo e clique em Salvar. Os perfis lembrados ficam separados por provedor no perfil do Brave. Desmarcar remove a cópia permanente imediatamente e mantém apenas a conexão ativa da sessão. Desconectar e apagar chave remove ambas as cópias.
 
 ## Revisar texto
 
@@ -91,5 +91,3 @@ Não há suporte a brave://, lojas de extensões e páginas protegidas. Alguns e
 ## Compatibilidade
 
 Consulte [COMPATIBILITY.md](COMPATIBILITY.md) antes de distribuir para outro navegador. O pacote Chromium atual não é instalável diretamente no Firefox ou Safari.
-
-

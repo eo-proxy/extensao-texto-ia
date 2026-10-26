@@ -44,7 +44,7 @@ Ative Modo do desenvolvedor, escolha Carregar sem compactação / Load unpacked 
 
 1. Carregar o pacote em um perfil separado, sem importar dados pessoais.
 2. Confirmar abertura do popup, abas Revisar texto e Configuração e status inicial Desconectado.
-3. Conectar uma API com chave pessoal, autorizar o host e executar Testar modelo.
+3. Conectar uma API com chave pessoal, autorizar o host e executar Testar Conexão.
 4. Conferir indicador e diagnóstico verdes na resposta positiva e vermelhos em uma falha.
 5. Digitar em textarea e contenteditable e verificar início após 2,5 segundos de pausa.
 6. Voltar a digitar durante uma chamada e confirmar cancelamento e descarte de respostas antigas.
@@ -60,5 +60,3 @@ Testes com conta real podem consumir a API e devem usar apenas conteúdo de exem
 - [Mozilla: implementação de background](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/manifest.json/background).
 - [Apple: empacotar Web Extensions para Safari](https://developer.apple.com/documentation/safariservices/packaging-a-web-extension-for-safari).
 - [Vivaldi: extensões e instalação manual](https://help.vivaldi.com/desktop/appearance-customization/extensions/).
-
-
