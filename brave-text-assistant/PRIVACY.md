@@ -24,11 +24,12 @@ Não coleta o conteúdo completo das páginas ou o histórico de navegação. As
 
 Consultar modelos envia a chave ao endpoint oficial da conta e filtra modelos de texto. Listar não comprova saldo, cota ou acesso de geração. Testar modelo usa uma frase fixa e pode ter cobrança.
 
-O diagnóstico da sessão contém apenas provedor, modelo, horário, duração, código sanitizado e HTTP status. Não contém chaves, prompts, respostas, URL da página ou o erro bruto. Ele desaparece ao encerrar a sessão.
+O diagnóstico da sessão contém apenas provedor, modelo, horário, duração, código sanitizado, HTTP status e identificador aleatório da configuração. Não contém chaves, prompts, respostas, URL da página ou o erro bruto. Ele desaparece ao encerrar a sessão.
 
 ## Provedor e cobrança
 
 A conta do provedor é responsável pelas cotas, pelo faturamento e pela retenção dos dados processados. A extensão não promete que store:false elimine todos os registros do provedor. Cancelar uma chamada não garante a reversão de processamento ou cobrança já iniciados.
 
 Não há publicidade, analytics, sincronização ou rastreamento de uso implementados.
+
 

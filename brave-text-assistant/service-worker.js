@@ -13,7 +13,7 @@ function trustedPage(sender) {
 function requestScope(sender) { return String(sender.tab?.id ?? "popup") + ":" + String(sender.frameId ?? 0); }
 function cancelJobs() { for (const job of jobs.values()) job.controller.abort(); jobs.clear(); }
 async function requirePermission(provider) {
-  if (!await chrome.permissions.contains({ origins: [getProvider(provider).host] })) throw new Error("Abra Sua IA e clique em Autorizar acesso para este provedor.");
+  if (!await chrome.permissions.contains({ origins: [getProvider(provider).host] })) throw new Error("Abra Configuração e autorize o acesso a este provedor.");
 }
 function publicError(error) {
   return {
@@ -27,7 +27,7 @@ async function diagnose(settings, startedAt, outcome) {
   const { diagnostics = {} } = await chrome.storage.session.get("diagnostics");
   // Não grave prompts, respostas, chaves, URL visitada ou mensagens brutas da API.
   diagnostics[settings.provider] = {
-    provider: settings.provider, model: settings.model || "", at: Date.now(),
+    provider: settings.provider, model: settings.model || "", revision: settings.revision || "", at: Date.now(),
     durationMs: Math.max(0, Date.now() - startedAt),
     code: outcome.code || "OK", httpStatus: outcome.httpStatus || 200
   };
@@ -63,7 +63,7 @@ async function generate(message, sender, test = false) {
   } finally { if (jobs.get(key) === job) jobs.delete(key); }
 }
 async function handleMessage(message, sender) {
-  if (!await ready) throw new Error("Não foi possível preparar a extensão. Recarregue-a no Brave.");
+  if (!await ready) throw new Error("Não foi possível preparar a extensão. Recarregue-a no navegador.");
   if (PRIVILEGED.has(message.type) && !trustedPage(sender)) throw new Error("Esta operação só pode ser feita nas configurações da extensão.");
   if (message.type === "GET_SETTINGS") return getSettingsForPage();
   if (message.type === "SELECT_PROVIDER") {
@@ -137,4 +137,5 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 chrome.permissions.onAdded.addListener(notifyWidgets);
 chrome.permissions.onRemoved.addListener(() => { cancelJobs(); notifyWidgets(); });
+
 

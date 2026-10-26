@@ -42,7 +42,7 @@ test("Teste usa frase fixa e diagnóstico não armazena prompt, chave ou respost
     const response = await send({ type: "TEST_PROVIDER", provider: "openai", text: "Texto confidencial" });
     assert.equal(response.ok, true);
     const diag = env.sessionState.diagnostics.openai;
-    assert.deepEqual(Object.keys(diag).sort(), ["at", "code", "durationMs", "httpStatus", "model", "provider"]);
+    assert.deepEqual(Object.keys(diag).sort(), ["at", "code", "durationMs", "httpStatus", "model", "provider", "revision"]);
     assert.ok(!JSON.stringify(diag).includes("test-openai-secret"));
     assert.equal(diag.code, "OK");
   } finally { globalThis.fetch = old; }
@@ -84,4 +84,5 @@ test("429 respeita a pausa informada sem repetir a chamada em sequência", async
     assert.equal(second.code, "RATE_LIMIT"); assert.equal(calls, 1);
   } finally { globalThis.fetch = old; }
 });
+
 

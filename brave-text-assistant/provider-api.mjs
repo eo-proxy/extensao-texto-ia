@@ -78,7 +78,7 @@ async function withDeadline(callback, timeoutMs = 25000, externalSignal) {
     return await callback(controller.signal);
   } catch (error) {
     if (error?.name === "AbortError") throw apiFailure(externalSignal?.aborted ? "Revisão cancelada." : "A API demorou demais para responder. Experimente um modelo rápido, como Flash ou Flash-Lite.", externalSignal?.aborted ? "CANCELLED" : "TIMEOUT");
-    if (error instanceof TypeError) throw apiFailure("Falha de conexão com a API. Confira a internet e a permissão do Brave.", "NETWORK");
+    if (error instanceof TypeError) throw apiFailure("Falha de conexão com a API. Confira a internet e a permissão do navegador.", "NETWORK");
     throw error;
   } finally {
     clearTimeout(timer);
@@ -203,5 +203,6 @@ export async function rewriteWithProvider(rawSettings, text, instruction = "", {
     return textFromResponse(settings.provider, payload, legacy);
   }, 25000, signal);
 }
+
 
 

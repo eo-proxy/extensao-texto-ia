@@ -1,32 +1,32 @@
-# Texto IA — GHS Studio · 0.6.0
+# Texto IA — GHS Studio · 0.6.1
 
-Assistente de revisão para Brave com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
+Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
 ## Instalar e atualizar
 
 1. Extraia o ZIP em uma pasta permanente.
-2. Em brave://extensions, ative Modo do desenvolvedor e use Carregar sem compactação.
+2. Abra a página de extensões: brave://extensions no Brave, chrome://extensions no Chrome ou edge://extensions no Edge. Ative Modo do desenvolvedor e use Carregar sem compactação.
 3. Selecione a pasta brave-text-assistant, que contém manifest.json.
 4. Para atualizar uma instalação existente, substitua os arquivos da mesma pasta e clique em Recarregar. Atualize também as abas e janelas de sites instalados como aplicativo.
-5. Abra o ícone da extensão e entre na aba Sua IA.
+5. Abra o ícone da extensão e entre na aba Configuração.
 
 Remover a extensão apaga seu armazenamento. O ZIP não contém chaves ou dados pessoais.
 
-## Conectar Sua IA
+## Conexão
 
 1. Escolha OpenAI, Gemini ou Claude. O link Criar chave abre o painel oficial correspondente; as instruções detalhadas ficam em Como conectar.
 2. Cole sua chave. Marque Lembrar chave neste dispositivo somente se quiser guardá-la no perfil local.
 3. Clique em Usar esta IA. O modelo pode ficar vazio na primeira etapa.
-4. Se necessário, clique em Autorizar acesso no Brave. A conexão já foi preparada na sessão antes do aviso, que pode fechar a janela.
+4. Se necessário, clique em Autorizar acesso. A conexão já foi preparada na sessão antes do aviso, que pode fechar a janela.
 5. Consulte os modelos e escolha um modelo de texto da conta, ou informe um ID manualmente.
 6. Clique em Usar esta IA para ativar, ou em Testar modelo para ativar e confirmar uma geração com frase de exemplo. O teste pode consumir créditos.
-7. O cabeçalho indica se falta chave, permissão ou modelo. O diagnóstico mostra duração e código da última chamada sem guardar texto, chave ou resposta.
+7. O cabeçalho fica verde com Conectado depois de uma confirmação válida. Sem confirmação ou após falha atual, mostra Desconectado em vermelho. O diagnóstico da conexão atual fica verde em sucesso e vermelho em falha.
 
 As APIs de modelos nem sempre confirmam permissão de geração, saldo ou cota. Não é possível comprovar isso apenas pela lista. O teste real confirma somente que o modelo respondeu naquele momento.
 
 ### Sem lembrar a chave — padrão
 
-A conexão fica apenas em chrome.storage.session, na memória do navegador. Fechar e reabrir o popup ou reiniciar o service worker mantém a sessão. Trocar de provedor descarta a conexão temporária anterior; encerrar o Brave descarta a sessão.
+A conexão fica apenas em chrome.storage.session, na memória do navegador. Fechar e reabrir o popup ou reiniciar o service worker mantém a sessão. Trocar de provedor descarta a conexão temporária anterior; encerrar o navegador descarta a sessão.
 
 Não há retenção de rascunhos de chave/modelo ao alternar o seletor. As configurações antigas salvas automaticamente são retiradas do disco na atualização. A conexão ativa antiga pode continuar apenas na memória até trocar de IA ou encerrar o navegador.
 
@@ -86,4 +86,9 @@ Acesso ao aplicativo de conversa não configura a API nesta extensão. Disponibi
 Leia [PRIVACY.md](PRIVACY.md) e [SECURITY.md](SECURITY.md). As proteções foram verificadas em código e testes locais, sem garantia de ausência total de vulnerabilidades. Chaves lembradas ficam no perfil sem criptografia adicional da aplicação; use a sessão temporária se não quiser a cópia permanente.
 
 Não há suporte a brave://, lojas de extensões e páginas protegidas. Alguns editores complexos, iframes ou canvas exigem adaptação. Cancelar a chamada não garante estorno de processamento já iniciado pelo provedor. A instalação é local e não tem atualização automática por loja.
+
+
+## Compatibilidade
+
+Consulte [COMPATIBILITY.md](COMPATIBILITY.md) antes de distribuir para outro navegador. O pacote Chromium atual não é instalável diretamente no Firefox ou Safari.
 

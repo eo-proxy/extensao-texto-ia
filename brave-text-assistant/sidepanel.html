@@ -10,18 +10,16 @@
   <main>
     <header class="brand-header">
       <img class="brand-logo" src="assets/texto-ia-logo.svg" alt="Texto IA — GHS Studio">
-      <span id="connectionState" class="state-pill">Conecte sua IA</span>
+      <span id="connectionState" class="state-pill disconnected" role="status" aria-live="polite">Desconectado</span>
     </header>
     <nav class="tabs" aria-label="Painéis" role="tablist">
       <button id="reviewTab" class="tab active" role="tab" aria-selected="true" aria-controls="reviewView">Revisar texto</button>
-      <button id="settingsToggle" class="tab" role="tab" aria-selected="false" aria-controls="settings">Sua IA</button>
+      <button id="settingsToggle" class="tab" role="tab" aria-selected="false" aria-controls="settings">Configuração</button>
     </nav>
     <div id="reviewView" role="tabpanel" aria-labelledby="reviewTab">
       <section class="intro">
-        <span class="eyebrow">NO SEU CAMPO DE TEXTO</span>
-        <h1>Escreva. A revisão vem até você.</h1>
-        <p>Após <strong>2,5 segundos sem digitar</strong>, a revisão começa. Ao continuar escrevendo, a sugestão anterior fecha e a chamada pendente é cancelada.</p>
-        <p class="small-note">A chegada da sugestão depende do modelo e do tempo de resposta da API.</p>
+        <h1>Revise enquanto escreve</h1>
+        <p>Melhore seus textos com ajuda da IA.</p>
       </section>
       <section id="setupNotice" class="notice hidden">
         <strong>Conecte sua IA para começar</strong>
@@ -29,9 +27,9 @@
         <button id="setupButton" class="primary">Configurar minha IA</button>
       </section>
       <section class="preferences" aria-label="Preferências de revisão">
-        <label class="toggle-row" for="widgetEnabled"><span><strong>Mostrar robô na página</strong><small>Um botão de 40 px que você pode arrastar.</small></span><input id="widgetEnabled" type="checkbox" checked></label>
-        <label class="toggle-row" for="autoEnabled"><span><strong>Revisar ao parar de digitar</strong><small>Envia o texto à IA depois de 2,5 s de pausa.</small></span><input id="autoEnabled" type="checkbox" checked></label>
-        <label class="toggle-row" for="autoApplyEnabled"><span><strong>Aplicar sem confirmação</strong><small>Desligado: você revisa e decide quando aplicar.</small></span><input id="autoApplyEnabled" type="checkbox"></label>
+        <label class="toggle-row" for="widgetEnabled"><span><strong>Mostrar robô na página</strong><small>Acesse o assistente enquanto escreve.</small></span><input id="widgetEnabled" type="checkbox" checked></label>
+        <label class="toggle-row" for="autoEnabled"><span><strong>Revisar ao parar de digitar</strong><small>Receba sugestões ao terminar de digitar.</small></span><input id="autoEnabled" type="checkbox" checked></label>
+        <label class="toggle-row" for="autoApplyEnabled"><span><strong>Aplicar sem confirmação</strong><small>Substitua o texto sem precisar confirmar.</small></span><input id="autoApplyEnabled" type="checkbox"></label>
       </section>
       <details class="manual-editor">
         <summary>Revisar um campo manualmente</summary>
@@ -60,7 +58,7 @@
       <div id="status" class="status" role="status" aria-live="polite"></div>
     </div>
     <section id="settings" class="settings hidden" role="tabpanel" aria-labelledby="settingsToggle">
-      <div class="section-heading"><div><span class="eyebrow">CONEXÃO PESSOAL</span><h1>Sua IA, do seu jeito.</h1></div><button id="closeSettings" class="text-button">Voltar</button></div>
+      <h1>Conexão</h1>
       <label class="step-label" for="provider">1 · Escolha a IA</label>
       <select id="provider"><option value="openai">OpenAI (GPT)</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select>
       <details class="provider-guide">
@@ -71,7 +69,7 @@
       </details>
       <div class="section-heading key-heading"><label class="step-label" for="apiKey" id="apiKeyLabel">2 · Chave da API</label><a id="getKeyLink" target="_blank" rel="noopener noreferrer">Criar chave ↗</a></div>
       <div class="key-field"><input id="apiKey" maxlength="4096" type="password" autocomplete="off" spellcheck="false" autocapitalize="none"><button id="showKey" class="text-button" type="button" aria-pressed="false" aria-label="Mostrar ou ocultar chave">Mostrar</button></div>
-      <label class="remember-row" for="rememberCredentials"><input id="rememberCredentials" type="checkbox"><span><strong>Lembrar chave neste dispositivo</strong><small>Desmarcado: só nesta sessão. Trocar de IA descarta os dados não lembrados.</small></span></label>
+      <label class="remember-row" for="rememberCredentials"><input id="rememberCredentials" type="checkbox"><span><strong>Lembrar chave neste dispositivo</strong><small>Mantenha sua chave para a próxima vez.</small></span></label>
       <label class="step-label" for="model">3 · Escolha um modelo de texto</label>
       <div id="modelChoiceWrap" class="hidden"><label class="sr-only" for="modelChoice">Modelos da sua conta</label><select id="modelChoice"><option value="">Consulte os modelos</option></select></div>
       <input id="model" maxlength="200" autocomplete="off" spellcheck="false" autocapitalize="none" aria-label="ID do modelo" aria-describedby="modelHelp" placeholder="Consulte os modelos ou informe um ID">
@@ -82,20 +80,26 @@
         <p class="small-note">Reduz o raciocínio nos modelos compatíveis. Para gemini-3.6-flash, usa o nível mínimo. Flash e Flash-Lite são opções voltadas a respostas rápidas; prefira versões estáveis disponíveis na sua conta.</p>
       </div>
       <button id="saveSettings" class="primary full">Usar esta IA</button>
-      <button id="authorizeProvider" class="secondary full" type="button" disabled>Autorizar acesso no Brave</button>
+      <button id="authorizeProvider" class="secondary full" type="button" disabled>Autorizar acesso</button>
       <p id="permissionHint" class="small-note"></p>
       <div class="actions"><button id="loadModels" class="secondary" disabled>Consultar modelos</button><button id="testProvider" class="primary" disabled>Testar modelo</button></div>
       <label class="compact-check" for="includeExperimental"><input id="includeExperimental" type="checkbox">Incluir modelos experimentais na consulta</label>
       <p class="small-note">A lista vem da API da sua conta e filtra funções que não servem à revisão. O teste confirma a geração com uma frase de exemplo e pode consumir créditos.</p>
       <div id="settingsStatus" class="status" role="status" aria-live="polite"></div>
-      <div class="diagnostic"><strong>Conexão e diagnóstico</strong><p id="lastDiagnostic" class="small-note"></p></div>
-      <button id="forgetKey" class="text-button danger full">Desconectar e apagar chave</button>
-      <p class="privacy-note">A chave é enviada só ao provedor escolhido. Sem a opção de lembrar, ela fica na memória da sessão até trocar de IA ou encerrar o Brave. Cada provedor tem suas próprias cotas e cobranças.</p>
+      <div id="connectionDiagnostic" class="diagnostic" role="status" aria-live="polite"><strong id="diagnosticTitle">Conexão e diagnóstico</strong><p id="lastDiagnostic" class="small-note"></p></div>
+      <section class="disconnect-card" aria-labelledby="disconnectTitle">
+        <div class="disconnect-heading"><span class="disconnect-symbol" aria-hidden="true">×</span><h2 id="disconnectTitle">Encerrar conexão</h2></div>
+        <p>Desconecte esta IA e remova sua chave.</p>
+        <button id="forgetKey" class="danger-button">Desconectar e apagar chave</button>
+      </section>
+      <p class="privacy-note">A chave é enviada só ao provedor escolhido. Sem a opção de lembrar, ela fica na memória da sessão até trocar de IA ou encerrar o navegador. Cada provedor tem suas próprias cotas e cobranças.</p>
     </section>
-    <footer><span id="providerLabel">Sua IA pessoal</span><span>GHS Studio · v0.6.0</span></footer>
+    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.6.1</span></footer>
   </main>
   <script type="module" src="sidepanel.js"></script>
 </body>
 </html>
+
+
 
 

@@ -1,3 +1,4 @@
+import { connectionPresentation } from "./connection-presentation.mjs";
 import { PROVIDERS, getProvider, normalizeModel, validateKey } from "./providers.mjs";
 
 const $ = (id) => document.getElementById(id);
@@ -9,7 +10,7 @@ function setStatus(message = "", error = false) { $("status").textContent = mess
 function setSettingsStatus(message = "", error = false) { $("settingsStatus").textContent = message; $("settingsStatus").classList.toggle("error", error); }
 async function send(message) {
   const response = await chrome.runtime.sendMessage(message);
-  if (!response?.ok) throw new Error(response?.error || "A extensão não respondeu. Recarregue-a no Brave.");
+  if (!response?.ok) throw new Error(response?.error || "A extensão não respondeu. Recarregue-a no navegador.");
   return response;
 }
 function showView(settings) {
@@ -38,8 +39,8 @@ function updateButtons() {
   $("testProvider").disabled = settingsBusy || !permissionGranted || !values.apiKey || !values.model;
   for (const id of ["provider", "apiKey", "model", "modelChoice", "saveSettings", "forgetKey", "rememberCredentials", "geminiSpeed", "includeExperimental"]) $(id).disabled = settingsBusy;
   $("permissionHint").textContent = permissionGranted
-    ? "O Brave já permite o acesso a esta API."
-    : "Clique em Usar esta IA para preparar a conexão. Depois autorize o acesso no Brave.";
+    ? "Acesso autorizado."
+    : "Clique em Usar esta IA para preparar a conexão. Depois autorize o acesso.";
 }
 function setBusy(value) { settingsBusy = value; updateButtons(); }
 function renderModelCatalog() {
@@ -59,23 +60,22 @@ function renderModelCatalog() {
   $("modelChoiceWrap").classList.toggle("hidden", !modelCatalog.length);
 }
 function renderDiagnostic() {
-  const diagnostic = diagnostics[selectedProvider];
-  $("lastDiagnostic").textContent = diagnostic
-    ? "Última chamada: " + (diagnostic.code === "OK" ? "sucesso" : diagnostic.code) +
-      " · " + (diagnostic.durationMs / 1000).toFixed(1) + " s" +
-      (diagnostic.httpStatus ? " · HTTP " + diagnostic.httpStatus : "") + " · " + diagnostic.model
-    : "O teste envia apenas uma frase de exemplo. Nenhum texto ou chave entra no diagnóstico.";
+  const view = connectionPresentation(profiles[selectedProvider], permissionGranted, diagnostics[selectedProvider]);
+  $("connectionDiagnostic").classList.toggle("success", view.diagnosticState === "success");
+  $("connectionDiagnostic").classList.toggle("error", view.diagnosticState === "error");
+  $("diagnosticTitle").textContent = view.diagnosticTitle;
+  $("lastDiagnostic").textContent = view.diagnosticText;
+  return view;
 }
 async function refreshSummary() {
   const profile = profiles[selectedProvider];
   const info = getProvider(selectedProvider);
-  const configured = Boolean(profile?.apiKey && profile?.model && permissionGranted);
-  $("setupNotice").classList.toggle("hidden", configured);
-  const label = !profile?.apiKey ? "Conecte sua IA" : !permissionGranted ? "Falta autorizar" : !profile.model ? "Escolha um modelo" : profile.verifiedAt ? "Modelo testado" : "Pronto para revisar";
-  $("connectionState").textContent = label;
-  $("connectionState").classList.toggle("ready", configured);
+  const view = renderDiagnostic();
+  $("setupNotice").classList.toggle("hidden", view.configured);
+  $("connectionState").textContent = view.label;
+  $("connectionState").classList.toggle("connected", view.connected);
+  $("connectionState").classList.toggle("disconnected", !view.connected);
   $("providerLabel").textContent = info.name + (profile?.apiKey ? profile.rememberCredentials ? " · chave lembrada" : " · nesta sessão" : "");
-  renderDiagnostic();
 }
 async function renderProvider() {
   const version = ++renderVersion;
@@ -157,7 +157,6 @@ $("showKey").addEventListener("click", () => {
 });
 $("settingsToggle").addEventListener("click", openSettings);
 $("setupButton").addEventListener("click", openSettings);
-$("closeSettings").addEventListener("click", () => showView(false));
 $("reviewTab").addEventListener("click", () => showView(false));
 for (const name of ["widgetEnabled", "autoEnabled", "autoApplyEnabled"]) $(name).addEventListener("change", async () => {
   try { await send({ type: "SET_WIDGET_PREFS", [name]: $(name).checked }); setStatus("Preferência atualizada."); }
@@ -169,8 +168,8 @@ $("saveSettings").addEventListener("click", async () => {
     await useCurrent();
     setSettingsStatus(!permissionGranted ? "Conexão preparada. Autorize o acesso no botão abaixo."
       : !$("model").value ? "Chave pronta para uso. Consulte e escolha um modelo."
-      : $("rememberCredentials").checked ? "Configuração ativada e lembrada neste dispositivo."
-      : "Configuração ativada apenas nesta sessão. Ao trocar de IA, estes dados serão descartados.");
+      : $("rememberCredentials").checked ? "Configuração lembrada. Teste o modelo para confirmar a conexão."
+      : "Configuração ativada nesta sessão. Teste o modelo para confirmar a conexão.");
   } catch (error) { setSettingsStatus(error.message, true); }
   finally { setBusy(false); }
 });
@@ -202,7 +201,7 @@ $("testProvider").addEventListener("click", async () => {
     await refreshSummary();
     setSettingsStatus("Modelo respondeu em " + (response.durationMs / 1000).toFixed(1) + " s. Conexão pronta.");
   } catch (error) {
-    try { const latest = await send({ type: "GET_SETTINGS" }); diagnostics = latest.diagnostics || {}; renderDiagnostic(); } catch (_) {}
+    try { const latest = await send({ type: "GET_SETTINGS" }); diagnostics = latest.diagnostics || {}; await refreshSummary(); } catch (_) {}
     setSettingsStatus(error.message, true);
   } finally { setBusy(false); }
 });
@@ -296,5 +295,6 @@ document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("clic
 }));
 
 loadSettings(true).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));
+
 
 

@@ -1,4 +1,4 @@
-# Revisão de segurança — Texto IA 0.6.0
+# Revisão de segurança — Texto IA 0.6.1
 
 Revisão do código e testes locais em 26/10/2026. Este documento descreve as proteções verificadas e seus limites; não representa uma garantia de ausência de vulnerabilidades nem uma auditoria externa.
 
@@ -9,7 +9,7 @@ Revisão do código e testes locais em 26/10/2026. Este documento descreve as pr
 - A persistência em chrome.storage.local exige rememberCredentials=true. Desmarcar a opção remove a cópia local imediatamente e preserva só a sessão ativa.
 - A atualização move a conexão ativa antiga sem consentimento para memória e remove as credenciais antigas do disco. Perfis explicitamente lembrados são preservados.
 - Não há chave da GHS Studio, backend intermediário, analytics ou dependência npm de execução.
-- Diagnósticos guardam apenas provedor, modelo, horário, duração, código sanitizado e status HTTP, na sessão. Não guardam chave, texto, resposta, URL visitada ou corpo bruto de erro.
+- Diagnósticos guardam apenas provedor, modelo, horário, duração, código sanitizado, status HTTP e identificador aleatório da configuração, na sessão. Não guardam chave, texto, resposta, URL visitada ou corpo bruto de erro.
 
 ## Fronteiras de confiança
 
@@ -41,4 +41,5 @@ Revisão do código e testes locais em 26/10/2026. Este documento descreve as pr
 O processamento pelo provedor e a retenção na conta dele seguem suas próprias condições. Uma chave explicitamente lembrada fica no perfil do Brave sem criptografia adicional da aplicação; alguém com acesso ao perfil/dispositivo pode acessá-la. Uma chave temporária continua existindo na memória enquanto a sessão está ativa. Dados sensíveis escritos em campos comuns não podem ser identificados de forma infalível: o usuário deve pausar a revisão nesses casos. Cancelar a requisição não garante que o provedor deixe de contabilizar processamento já iniciado.
 
 Antes de distribuir publicamente por loja, revise as exigências de publicação e os termos dos provedores. Uma credencial compartilhada da empresa exigiria outro desenho, com proteção no servidor.
+
 

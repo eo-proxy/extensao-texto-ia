@@ -79,3 +79,38 @@ test("Lembrar exige escolha explícita e permite recuperar o provedor depois", a
   assert.equal(env.state.providerProfiles.gemini, undefined);
 });
 
+
+test("Interface mostra estado e diagnóstico verdes depois de uma resposta positiva", async () => {
+  assert.equal(elements.connectionState.textContent, "Conectado");
+  assert.equal(elements.connectionState.classList.contains("connected"), true);
+  assert.equal(elements.connectionDiagnostic.classList.contains("success"), true);
+  assert.equal(elements.connectionDiagnostic.classList.contains("error"), false);
+});
+test("Falha no teste muda imediatamente os dois indicadores para vermelho", async () => {
+  const original = globalThis.fetch;
+  try {
+    globalThis.fetch = async () => ({ ok: false, status: 503, json: async () => ({ error: { code: "UNAVAILABLE" } }) });
+    await elements.testProvider.fire("click");
+    assert.equal(elements.connectionState.textContent, "Desconectado");
+    assert.equal(elements.connectionState.classList.contains("disconnected"), true);
+    assert.equal(elements.connectionState.classList.contains("connected"), false);
+    assert.equal(elements.connectionDiagnostic.classList.contains("error"), true);
+    assert.equal(elements.connectionDiagnostic.classList.contains("success"), false);
+  } finally { globalThis.fetch = original; }
+});
+test("Desconectar apaga a chave e mantém o indicador desconectado", async () => {
+  await elements.forgetKey.fire("click");
+  assert.equal(elements.apiKey.value, "");
+  assert.equal(elements.connectionState.textContent, "Desconectado");
+  assert.equal(elements.connectionState.classList.contains("disconnected"), true);
+});
+test("Menu e apresentação usam os textos simplificados e não têm botão Voltar", () => {
+  assert.match(html, /aria-controls="settings">Configuração/);
+  assert.match(html, /<h1>Conexão<\/h1>/);
+  assert.match(html, /class="disconnect-card"/);
+  assert.ok(!html.includes('id="closeSettings"'));
+  assert.ok(!html.includes("40 px"));
+  assert.ok(!html.includes("NO SEU CAMPO DE TEXTO"));
+  assert.ok(!html.includes("Sua IA, do seu jeito."));
+});
+

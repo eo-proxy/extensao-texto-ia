@@ -171,7 +171,7 @@
         host.style.left = config.widgetPosition.x + "px"; host.style.top = config.widgetPosition.y + "px";
       }
       requestAnimationFrame(clampPosition);
-      if (!configured) setStatus("Abra o ícone da extensão e configure Sua IA para começar.");
+      if (!configured) setStatus("Abra o ícone da extensão e abra Configuração para começar.");
       else if (pendingUserInput) scheduleAutomaticSuggestion();
     } catch (_) { setStatus("A extensão foi atualizada. Recarregue esta página para continuar.", true); }
   }
@@ -217,7 +217,7 @@
     if (!current.text.trim() || current.text.length > MAX_LENGTH) {
       if (manual) { expand(); setStatus("Use um texto de até 4.000 caracteres no campo ativo.", true); } return;
     }
-    if (!configured) { expand(); setStatus("Configure Sua IA pelo ícone da extensão no Brave.", true); return; }
+    if (!configured) { expand(); setStatus("Abra Configuração pelo ícone da extensão.", true); return; }
     if (!manual && current.element === lastRequestedElement && current.text === lastRequestedText) return;
     const request = { id: Date.now() + "-" + (++serial), element: current.element, manual, timeout: null };
     currentRequest = request;
@@ -232,7 +232,7 @@
       if (!response?.ok) {
         if (response?.code === "CANCELLED") return;
         if (response?.retryAfterMs) blockedUntil = Date.now() + response.retryAfterMs;
-        throw new Error(response?.error || "Não foi possível revisar. Confira Sua IA na extensão.");
+        throw new Error(response?.error || "Não foi possível revisar. Confira Configuração na extensão.");
       }
       if (!draftIsCurrent(current) || editor.getActiveElement() !== current.element || document.visibilityState !== "visible") return;
       lastRequestedElement = current.element; lastRequestedText = current.text;
@@ -348,6 +348,7 @@
   });
   loadConfig();
 })();
+
 
 
 
