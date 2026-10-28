@@ -16,87 +16,89 @@
       <button id="reviewTab" class="tab active" role="tab" aria-selected="true" aria-controls="reviewView">Revisar texto</button>
       <button id="settingsToggle" class="tab" role="tab" aria-selected="false" aria-controls="settings">Configuração</button>
     </nav>
-    <div id="reviewView" role="tabpanel" aria-labelledby="reviewTab">
-      <section class="intro">
-        <h1>Revise enquanto escreve</h1>
-        <p>Melhore seus textos com ajuda da IA.</p>
-      </section>
-      <section id="setupNotice" class="notice hidden">
-        <strong>Conecte sua IA para começar</strong>
-        <span>Use uma chave pessoal da OpenAI, Google ou Anthropic.</span>
-        <button id="setupButton" class="primary">Configurar minha IA</button>
-      </section>
-      <section class="preferences" aria-label="Preferências de revisão">
-        <label class="toggle-row" for="widgetEnabled"><span><strong>Mostrar robô na página</strong><small>Acesse o assistente enquanto escreve.</small></span><input id="widgetEnabled" type="checkbox" checked></label>
-        <label class="toggle-row" for="autoEnabled"><span><strong>Revisar ao parar de digitar</strong><small>Receba sugestões ao terminar de digitar.</small></span><input id="autoEnabled" type="checkbox" checked></label>
-        <label class="toggle-row" for="autoApplyEnabled"><span><strong>Aplicar sem confirmação</strong><small>Substitua o texto sem precisar confirmar.</small></span><input id="autoApplyEnabled" type="checkbox"></label>
-      </section>
-      <details class="manual-editor">
-        <summary>Revisar um campo manualmente</summary>
-        <section class="editor">
-          <label for="instruction">Como melhorar o texto?</label>
-          <div class="chips" role="group" aria-label="Estilo da revisão">
-            <button class="chip active" data-instruction="Torne o texto mais claro e profissional, sem mudar o significado.">Profissional</button>
-            <button class="chip" data-instruction="Reescreva o texto em linguagem mais técnica e precisa, sem inventar informações.">Técnico</button>
-            <button class="chip" data-instruction="Corrija gramática, ortografia e pontuação, preservando o estilo original.">Corrigir</button>
-          </div>
-          <textarea id="instruction" maxlength="1500" rows="2" aria-label="Instrução personalizada">Torne o texto mais claro e profissional, sem mudar o significado.</textarea>
-          <button id="readButton" class="secondary full">Ler o campo selecionado</button>
-          <p class="small-note">Clique no campo do site antes de abrir esta janela. Selecione um trecho para revisar só essa parte.</p>
-          <div id="sourceWrap" class="text-wrap hidden">
-            <div class="section-heading"><h2>Texto original</h2><button id="clearButton" class="text-button">Limpar</button></div>
-            <div id="sourceText" class="text-box"></div>
-          </div>
-          <button id="rewriteButton" class="primary full hidden">Revisar agora</button>
-          <div id="suggestionWrap" class="text-wrap hidden">
-            <label for="suggestion">Sugestão — revise antes de aplicar</label>
-            <textarea id="suggestion" rows="6"></textarea>
-            <div class="actions"><button id="applyButton" class="primary">Aplicar no campo</button><button id="discardButton" class="secondary">Descartar</button></div>
-          </div>
+    <div id="panelContent" class="panel-content">
+      <div id="reviewView" role="tabpanel" aria-labelledby="reviewTab">
+        <section class="intro">
+          <h1>Revise enquanto escreve</h1>
+          <p>Melhore seus textos com ajuda da IA.</p>
         </section>
-      </details>
-      <div id="status" class="status" role="status" aria-live="polite"></div>
+        <section id="setupNotice" class="notice hidden">
+          <strong>Conecte sua IA para começar</strong>
+          <span>Use uma chave pessoal da OpenAI, Google ou Anthropic.</span>
+          <button id="setupButton" class="primary">Configurar minha IA</button>
+        </section>
+        <section class="preferences" aria-label="Preferências de revisão">
+          <label class="toggle-row" for="widgetEnabled"><span><strong>Mostrar robô na página</strong><small>Acesse o assistente enquanto escreve.</small></span><input id="widgetEnabled" type="checkbox" checked></label>
+          <label class="toggle-row" for="autoEnabled"><span><strong>Revisar ao parar de digitar</strong><small>Receba sugestões ao terminar de digitar.</small></span><input id="autoEnabled" type="checkbox" checked></label>
+          <label class="toggle-row" for="autoApplyEnabled"><span><strong>Aplicar sem confirmação</strong><small>Substitua o texto sem precisar confirmar.</small></span><input id="autoApplyEnabled" type="checkbox"></label>
+        </section>
+        <details class="manual-editor">
+          <summary>Revisar um campo manualmente</summary>
+          <section class="editor">
+            <label for="instruction">Como melhorar o texto?</label>
+            <div class="chips" role="group" aria-label="Estilo da revisão">
+              <button class="chip active" data-instruction="Torne o texto mais claro e profissional, sem mudar o significado.">Profissional</button>
+              <button class="chip" data-instruction="Reescreva o texto em linguagem mais técnica e precisa, sem inventar informações.">Técnico</button>
+              <button class="chip" data-instruction="Corrija gramática, ortografia e pontuação, preservando o estilo original.">Corrigir</button>
+            </div>
+            <textarea id="instruction" maxlength="1500" rows="2" aria-label="Instrução personalizada">Torne o texto mais claro e profissional, sem mudar o significado.</textarea>
+            <button id="readButton" class="secondary full">Ler o campo selecionado</button>
+            <p class="small-note">Clique no campo do site antes de abrir esta janela. Selecione um trecho para revisar só essa parte.</p>
+            <div id="sourceWrap" class="text-wrap hidden">
+              <div class="section-heading"><h2>Texto original</h2><button id="clearButton" class="text-button">Limpar</button></div>
+              <div id="sourceText" class="text-box"></div>
+            </div>
+            <button id="rewriteButton" class="primary full hidden">Revisar agora</button>
+            <div id="suggestionWrap" class="text-wrap hidden">
+              <label for="suggestion">Sugestão — revise antes de aplicar</label>
+              <textarea id="suggestion" rows="6"></textarea>
+              <div class="actions"><button id="applyButton" class="primary">Aplicar no campo</button><button id="discardButton" class="secondary">Descartar</button></div>
+            </div>
+          </section>
+        </details>
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+      </div>
+      <section id="settings" class="settings hidden" role="tabpanel" aria-labelledby="settingsToggle">
+        <h1>Conexão</h1>
+        <label class="step-label" for="provider">1 · Escolha a IA</label>
+        <select id="provider"><option value="openai">OpenAI (GPT)</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select>
+        <details class="provider-guide">
+          <summary id="providerGuideTitle">Como conectar sua IA</summary>
+          <ol id="providerSteps"></ol>
+          <p id="providerNote" class="small-note"></p>
+          <a id="providerDocsLink" target="_blank" rel="noopener noreferrer">Documentação oficial ↗</a>
+        </details>
+        <div class="section-heading key-heading"><label class="step-label" for="apiKey" id="apiKeyLabel">2 · Chave da API</label><a id="getKeyLink" target="_blank" rel="noopener noreferrer">Criar chave ↗</a></div>
+        <div class="key-field"><input id="apiKey" maxlength="4096" type="password" autocomplete="off" spellcheck="false" autocapitalize="none"><button id="showKey" class="text-button" type="button" aria-pressed="false" aria-label="Mostrar ou ocultar chave">Mostrar</button></div>
+        <label class="remember-row" for="rememberCredentials"><input id="rememberCredentials" type="checkbox"><span><strong>Lembrar chave neste dispositivo</strong><small>Mantenha sua chave para a próxima vez.</small></span></label>
+        <button id="authorizeProvider" class="secondary full" type="button" disabled>Autorizar acesso</button>
+        <p id="permissionHint" class="small-note"></p>
+        <label class="step-label" for="model">3 · Escolha um modelo de texto</label>
+        <div id="modelChoiceWrap" class="hidden"><label class="sr-only" for="modelChoice">Modelos da sua conta</label><select id="modelChoice"><option value="">Consulte os modelos</option></select></div>
+        <input id="model" maxlength="200" autocomplete="off" spellcheck="false" autocapitalize="none" aria-label="ID do modelo" aria-describedby="modelHelp" placeholder="Consulte os modelos ou informe um ID">
+        <button id="loadModels" class="secondary full" type="button" disabled>Consultar modelos</button>
+        <div class="connection-test-row">
+          <div id="connectionDiagnostic" class="diagnostic" role="status" aria-live="polite"><strong id="diagnosticTitle">Conexão e diagnóstico</strong><p id="lastDiagnostic" class="small-note"></p></div>
+          <button id="testProvider" class="secondary test-connection" type="button" disabled><svg class="wifi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M2 8.8a16 16 0 0 1 20 0M5.3 12.2a11 11 0 0 1 13.4 0M8.7 15.6a5.6 5.6 0 0 1 6.6 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg><span>Testar Conexão</span></button>
+        </div>
+        <div id="settingsStatus" class="status" role="status" aria-live="polite"></div>
+        <p id="modelHelp" class="small-note"></p>
+        <label class="compact-check" for="includeExperimental"><input id="includeExperimental" type="checkbox">Incluir modelos experimentais na consulta</label>
+        <p class="small-note">A lista mostra os modelos de texto da sua conta. O teste de conexão pode consumir créditos.</p>
+        <div id="geminiOptions" class="gemini-options hidden">
+          <label for="geminiSpeed">Velocidade da revisão</label>
+          <select id="geminiSpeed"><option value="fast">Rápido — recomendado para revisar</option><option value="standard">Padrão do modelo</option></select>
+          <p class="small-note">Reduz o raciocínio nos modelos compatíveis. Para gemini-3.6-flash, usa o nível mínimo. Flash e Flash-Lite são opções voltadas a respostas rápidas; prefira versões estáveis disponíveis na sua conta.</p>
+        </div>
+        <button id="saveSettings" class="primary save-button full" type="button">Salvar</button>
+        <button id="forgetKey" class="disconnect-button" type="button" title="Desconectar e apagar a chave desta IA">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg>
+          <span>Encerrar Conexão</span>
+        </button>
+        <p class="privacy-note">A chave é enviada só ao provedor escolhido. Sem a opção de lembrar, ela fica na memória da sessão até trocar de IA ou encerrar o navegador. Cada provedor tem suas próprias cotas e cobranças.</p>
+      </section>
     </div>
-    <section id="settings" class="settings hidden" role="tabpanel" aria-labelledby="settingsToggle">
-      <h1>Conexão</h1>
-      <label class="step-label" for="provider">1 · Escolha a IA</label>
-      <select id="provider"><option value="openai">OpenAI (GPT)</option><option value="gemini">Google Gemini</option><option value="claude">Anthropic Claude</option></select>
-      <details class="provider-guide">
-        <summary id="providerGuideTitle">Como conectar sua IA</summary>
-        <ol id="providerSteps"></ol>
-        <p id="providerNote" class="small-note"></p>
-        <a id="providerDocsLink" target="_blank" rel="noopener noreferrer">Documentação oficial ↗</a>
-      </details>
-      <div class="section-heading key-heading"><label class="step-label" for="apiKey" id="apiKeyLabel">2 · Chave da API</label><a id="getKeyLink" target="_blank" rel="noopener noreferrer">Criar chave ↗</a></div>
-      <div class="key-field"><input id="apiKey" maxlength="4096" type="password" autocomplete="off" spellcheck="false" autocapitalize="none"><button id="showKey" class="text-button" type="button" aria-pressed="false" aria-label="Mostrar ou ocultar chave">Mostrar</button></div>
-      <label class="remember-row" for="rememberCredentials"><input id="rememberCredentials" type="checkbox"><span><strong>Lembrar chave neste dispositivo</strong><small>Mantenha sua chave para a próxima vez.</small></span></label>
-      <button id="authorizeProvider" class="secondary full" type="button" disabled>Autorizar acesso</button>
-      <p id="permissionHint" class="small-note"></p>
-      <label class="step-label" for="model">3 · Escolha um modelo de texto</label>
-      <div id="modelChoiceWrap" class="hidden"><label class="sr-only" for="modelChoice">Modelos da sua conta</label><select id="modelChoice"><option value="">Consulte os modelos</option></select></div>
-      <input id="model" maxlength="200" autocomplete="off" spellcheck="false" autocapitalize="none" aria-label="ID do modelo" aria-describedby="modelHelp" placeholder="Consulte os modelos ou informe um ID">
-      <button id="loadModels" class="secondary full" type="button" disabled>Consultar modelos</button>
-      <div class="connection-test-row">
-        <div id="connectionDiagnostic" class="diagnostic" role="status" aria-live="polite"><strong id="diagnosticTitle">Conexão e diagnóstico</strong><p id="lastDiagnostic" class="small-note"></p></div>
-        <button id="testProvider" class="secondary test-connection" type="button" disabled><svg class="wifi-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M2 8.8a16 16 0 0 1 20 0M5.3 12.2a11 11 0 0 1 13.4 0M8.7 15.6a5.6 5.6 0 0 1 6.6 0"/><circle cx="12" cy="19" r="1" fill="currentColor" stroke="none"/></svg><span>Testar Conexão</span></button>
-      </div>
-      <div id="settingsStatus" class="status" role="status" aria-live="polite"></div>
-      <p id="modelHelp" class="small-note"></p>
-      <label class="compact-check" for="includeExperimental"><input id="includeExperimental" type="checkbox">Incluir modelos experimentais na consulta</label>
-      <p class="small-note">A lista mostra os modelos de texto da sua conta. O teste de conexão pode consumir créditos.</p>
-      <div id="geminiOptions" class="gemini-options hidden">
-        <label for="geminiSpeed">Velocidade da revisão</label>
-        <select id="geminiSpeed"><option value="fast">Rápido — recomendado para revisar</option><option value="standard">Padrão do modelo</option></select>
-        <p class="small-note">Reduz o raciocínio nos modelos compatíveis. Para gemini-3.6-flash, usa o nível mínimo. Flash e Flash-Lite são opções voltadas a respostas rápidas; prefira versões estáveis disponíveis na sua conta.</p>
-      </div>
-      <button id="saveSettings" class="primary save-button full" type="button">Salvar</button>
-      <button id="forgetKey" class="disconnect-button" type="button" title="Desconectar e apagar a chave desta IA">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><path d="M12 2v10"/></svg>
-        <span>Encerrar Conexão</span>
-      </button>
-      <p class="privacy-note">A chave é enviada só ao provedor escolhido. Sem a opção de lembrar, ela fica na memória da sessão até trocar de IA ou encerrar o navegador. Cada provedor tem suas próprias cotas e cobranças.</p>
-    </section>
-    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.6.4</span></footer>
+    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.6.5</span></footer>
   </main>
   <script type="module" src="sidepanel.js"></script>
 </body>

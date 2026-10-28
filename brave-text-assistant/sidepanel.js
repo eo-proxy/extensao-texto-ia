@@ -20,7 +20,7 @@ function showView(settings) {
   $("reviewTab").setAttribute("aria-selected", String(!settings));
   $("settingsToggle").classList.toggle("active", settings);
   $("reviewTab").classList.toggle("active", !settings);
-  window.scrollTo?.({ top: 0, behavior: "instant" });
+  $("panelContent").scrollTop = 0;
 }
 function openSettings() { showView(true); }
 function currentValues() {

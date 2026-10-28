@@ -1,7 +1,10 @@
 :root { color-scheme: dark; font-family: Inter, "Segoe UI", system-ui, sans-serif; color: #eaf3ff; background: #0b1423; font-synthesis: none; }
 * { box-sizing: border-box; }
-body { margin: 0; width: 400px; max-height: 600px; overflow-y: auto; }
-main { padding: 16px; }
+html { width: 400px; height: 600px; overflow: hidden; }
+body { margin: 0; width: 100%; height: 100%; overflow: hidden; }
+main { display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; width: 100%; height: 100%; padding: 16px; overflow: hidden; }
+.panel-content { min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; overscroll-behavior-y: contain; padding: 0 8px 4px 0; scrollbar-width: thin; scrollbar-color: #36577e #0b1423; }
+#reviewView, .settings { min-width: 0; }
 .brand-header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .brand-logo { width: 184px; height: 53px; object-fit: contain; }
 .state-pill { max-width: 147px; padding: 6px 9px; border: 1px solid #395373; border-radius: 7px; color: #bfd7f6; font-size: 10px; text-align: center; }
@@ -80,7 +83,9 @@ details li + li { margin-top: 6px; }
 .editor { padding-top: 15px; }
 .text-wrap { margin-top: 14px; }
 .text-box { max-height: 150px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #34506f; border-radius: 8px; padding: 10px; font-size: 11px; line-height: 1.6; }
-footer { display: flex; justify-content: space-between; gap: 9px; padding-top: 14px; margin-top: 20px; border-top: 1px solid #253c58; color: #8ba6c5; font-size: 9px; }
+footer { display: flex; align-items: center; justify-content: space-between; gap: 9px; min-width: 0; padding-top: 14px; margin-top: 20px; border-top: 1px solid #253c58; color: #8ba6c5; font-size: 9px; }
+footer > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+footer > span:last-child { flex-shrink: 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
 button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid #8ac6ff; outline-offset: 3px; }
 .hidden, [hidden] { display: none !important; }

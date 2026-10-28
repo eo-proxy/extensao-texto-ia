@@ -1,11 +1,11 @@
 # Texto IA — GHS Studio
 
-Extensão **0.6.4** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+Extensão **0.6.5** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
 
 ## Interface
 
 - Texto inicial e descrições das opções mais diretos.
-- Abas Revisar texto e Configuração, com o título Conexão.
+- Abas Revisar texto e Configuração em uma janela de tamanho fixo, com cabeçalho e rodapé sempre visíveis e rolagem só no conteúdo.
 - Indicador Conectado verde após confirmação e Desconectado vermelho quando não confirmado ou com falha.
 - Diagnóstico verde para sucesso e vermelho para falha da configuração atual.
 - Controle compacto e centralizado com o símbolo de desligar e Encerrar Conexão logo abaixo.

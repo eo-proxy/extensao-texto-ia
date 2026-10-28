@@ -113,3 +113,18 @@ test("Menu e apresentação usam os textos simplificados e não têm botão Volt
   assert.ok(!html.includes("NO SEU CAMPO DE TEXTO"));
   assert.ok(!html.includes("Sua IA, do seu jeito."));
 });
+
+test("Troca de abas reinicia apenas a rolagem do conteúdo e atualiza a navegação", async () => {
+  elements.panelContent.scrollTop = 260;
+  await elements.reviewTab.fire("click");
+  assert.equal(elements.panelContent.scrollTop, 0);
+  assert.equal(elements.reviewView.classList.contains("hidden"), false);
+  assert.equal(elements.settings.classList.contains("hidden"), true);
+  assert.equal(elements.reviewTab["aria-selected"], "true");
+  elements.panelContent.scrollTop = 180;
+  await elements.settingsToggle.fire("click");
+  assert.equal(elements.panelContent.scrollTop, 0);
+  assert.equal(elements.reviewView.classList.contains("hidden"), true);
+  assert.equal(elements.settings.classList.contains("hidden"), false);
+  assert.equal(elements.settingsToggle["aria-selected"], "true");
+});

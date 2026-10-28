@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.6.4
+# Texto IA — GHS Studio · 0.6.5
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -11,6 +11,8 @@ Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT),
 5. Abra o ícone da extensão e entre na aba Configuração.
 
 Remover a extensão apaga seu armazenamento. O ZIP não contém chaves ou dados pessoais.
+
+A janela mantém o mesmo tamanho ao alternar entre Revisar texto e Configuração. O cabeçalho, as abas e o rodapé ficam fixos; conteúdos maiores rolam apenas na área central. Ao trocar de aba, o conteúdo volta ao início.
 
 ## Conexão
 
