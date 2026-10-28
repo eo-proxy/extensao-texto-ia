@@ -107,10 +107,9 @@ test("Desconectar apaga a chave e mantém o indicador desconectado", async () =>
 test("Menu e apresentação usam os textos simplificados e não têm botão Voltar", () => {
   assert.match(html, /aria-controls="settings">Configuração/);
   assert.match(html, /<h1>Conexão<\/h1>/);
-  assert.match(html, /class="disconnect-card"/);
+  assert.match(html, /id="forgetKey" class="disconnect-button"/);
   assert.ok(!html.includes('id="closeSettings"'));
   assert.ok(!html.includes("40 px"));
   assert.ok(!html.includes("NO SEU CAMPO DE TEXTO"));
   assert.ok(!html.includes("Sua IA, do seu jeito."));
 });
-

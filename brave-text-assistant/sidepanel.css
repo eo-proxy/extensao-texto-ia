@@ -92,14 +92,7 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .diagnostic.success strong, .diagnostic.success .small-note { color: #a4e8bf; }
 .diagnostic.error { border-color: #984653; background: linear-gradient(135deg, #3b202b, #291923); }
 .diagnostic.error strong, .diagnostic.error .small-note { color: #ffb5be; }
-.disconnect-card { display: grid; gap: 10px; width: 100%; min-width: 0; margin-top: 17px; padding: 14px; border: 1px solid #89404d; border-radius: 12px; background: linear-gradient(135deg, #331d28, #231724); }
-.disconnect-heading { display: grid; grid-template-columns: 28px minmax(0, 1fr); align-items: center; gap: 9px; color: #ffd0d5; }
-.disconnect-symbol { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 5px; margin: 0; border: 1px solid #9b4d5b; border-radius: 8px; background: #48232f; color: #ffc1cb; line-height: 0; overflow: hidden; }
-.disconnect-card p { margin: 0; font-size: 11px; color: #d8aab4; }
-.danger-button { width: auto; max-width: 100%; padding: 8px 11px; border: 1px solid #c96372; border-radius: 8px; background: #853747; color: #fff1f3; font-size: 11px; font-weight: 650; }
-.danger-button:hover { background: #a24355; border-color: #ef92a0; }
-.danger-button:active { background: #74303e; }
-
-.disconnect-symbol svg { display: block; width: 16px; height: 16px; flex-shrink: 0; }
-.disconnect-heading h2 { min-width: 0; line-height: 1.4; overflow-wrap: anywhere; }
-.disconnect-card .danger-button { justify-self: start; min-height: 32px; margin: 0; }
+.disconnect-button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; width: fit-content; max-width: 100%; min-height: 52px; margin: 16px auto 0; padding: 6px 10px; border: 0; border-radius: 8px; background: transparent; color: #f0a4b1; font-size: 11px; font-weight: 600; line-height: 1.4; text-align: center; }
+.disconnect-button svg { display: block; width: 24px; height: 24px; flex-shrink: 0; }
+.disconnect-button:hover { color: #ffd0d5; }
+.disconnect-button:active { color: #e78599; }

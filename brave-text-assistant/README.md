@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.6.3
+# Texto IA — GHS Studio · 0.6.4
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -16,7 +16,7 @@ Remover a extensão apaga seu armazenamento. O ZIP não contém chaves ou dados 
 
 1. Escolha OpenAI, Gemini ou Claude. O link Criar chave abre o painel oficial correspondente; as instruções detalhadas ficam em Como conectar.
 2. Cole sua chave. Marque Lembrar chave neste dispositivo somente se quiser guardá-la no perfil local.
-3. Clique em Salvar, acima da área Encerrar conexão. O modelo pode ficar vazio na primeira etapa.
+3. Clique em Salvar, acima da botão Encerrar Conexão. O modelo pode ficar vazio na primeira etapa.
 4. Se necessário, clique em Autorizar acesso. A conexão já foi preparada na sessão antes do aviso, que pode fechar a janela.
 5. Use Consultar modelos, logo abaixo do campo de modelo, e escolha uma opção da conta, ou informe um ID manualmente.
 6. Clique em Salvar para ativar, ou em Testar Conexão para ativar e confirmar uma geração com frase de exemplo. O teste pode consumir créditos.
@@ -32,7 +32,7 @@ Não há retenção de rascunhos de chave/modelo ao alternar o seletor. As confi
 
 ### Lembrar a chave — opcional
 
-Marque Lembrar chave neste dispositivo e clique em Salvar. Os perfis lembrados ficam separados por provedor no perfil do Brave. Desmarcar remove a cópia permanente imediatamente e mantém apenas a conexão ativa da sessão. Desconectar e apagar chave remove ambas as cópias.
+Marque Lembrar chave neste dispositivo e clique em Salvar. Os perfis lembrados ficam separados por provedor no perfil do Brave. Desmarcar remove a cópia permanente imediatamente e mantém apenas a conexão ativa da sessão. Encerrar Conexão remove ambas as cópias.
 
 ## Revisar texto
 
