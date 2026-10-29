@@ -1,44 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import vm from "node:vm";
-const source = fs.readFileSync(new URL("../brave-text-assistant/content.js", import.meta.url), "utf8");
-function harness({ type = "textarea", autocomplete = "", editable = false } = {}) {
-  const listeners = {}, inputs = [], insertedNodes = [];
-  let doc, selectionRange;
-  class HTMLElement {
-    constructor() { this.isConnected = true; this.disabled = false; this.readOnly = false; this.isContentEditable = editable; this.innerText = "Original"; this.textContent = "Original"; this.selectionStart = 0; this.selectionEnd = 0; }
-    matches() { return type === "textarea" || ["text", "search", "email", "url", "tel", ""].includes(type); }
-    closest() { return null; }
-    getAttribute(name) { return name === "autocomplete" ? autocomplete : null; }
-    contains(node) { return node === this || node?.owner === this; }
-    focus() { doc.activeElement = this; }
-    dispatchEvent(event) { inputs.push(event); }
-    setSelectionRange(start, end) { this.selectionStart = start; this.selectionEnd = end; }
-  }
-  class HTMLTextAreaElement extends HTMLElement { get value() { return this._value || ""; } set value(value) { this._value = value; } }
-  class HTMLInputElement extends HTMLTextAreaElement {}
-  const field = type === "textarea" ? new HTMLTextAreaElement() : type === "contenteditable" ? new HTMLElement() : new HTMLInputElement();
-  field.value = "Original";
-  const range = {
-    startContainer: { owner: field }, endContainer: { owner: field },
-    cloneRange() { return { ...this }; }, toString: () => "Original",
-    selectNodeContents() {}, deleteContents() { field.innerText = ""; },
-    insertNode(node) { insertedNodes.push(node); field.innerText = node.text; }, collapse() {}
-  };
-  const selection = {
-    rangeCount: 0, toString: () => "Texto de fora",
-    getRangeAt: () => selectionRange || range,
-    removeAllRanges() {}, addRange(value) { selectionRange = value; }
-  };
-  doc = {
-    activeElement: field, addEventListener: (name, fn) => { listeners[name] = fn; },
-    createRange: () => range, createTextNode: (text) => ({ text, nodeType: 3 }), execCommand: () => false
-  };
-  const window = { getSelection: () => selection };
-  vm.runInNewContext(source, { window, document: doc, chrome: { runtime: { onMessage: { addListener() {} } } }, HTMLElement, HTMLTextAreaElement, HTMLInputElement, InputEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, Event: class {} });
-  return { api: window.__braveTextAssistantApi, field, selection, range, insertedNodes, inputs, setRange(value) { selectionRange = value; }, listeners };
-}
+import { contentHarness as harness } from "./content-harness.mjs";
+
 test("Senha, código de acesso e campos de cartão não são lidos automaticamente", () => {
   for (const options of [{ type: "password" }, { autocomplete: "one-time-code" }, { autocomplete: "cc-number" }, { autocomplete: "new-password" }]) {
     const h = harness(options);
@@ -78,3 +41,100 @@ test("Mudança no texto e limites de seleção invalidam a aplicação", () => {
   assert.equal(h.field.value, "Alterado");
 });
 
+
+test("Desfazer restaura o texto inteiro, a seleção e emite historyUndo", () => {
+  const h = harness(); h.field.selectionStart = 2; h.field.selectionEnd = 5;
+  const result = h.api.applyText("Revisado", { selectedOnly: false, originalText: "Original" });
+  assert.equal(result.canUndo, true); assert.equal(h.field.value, "Revisado");
+  h.api.undoText(result.undoId);
+  assert.equal(h.field.value, "Original");
+  assert.deepEqual([h.field.selectionStart, h.field.selectionEnd], [2, 5]);
+  assert.equal(h.inputs.findLast(event => event.type === "input").inputType, "historyUndo");
+  assert.equal(h.api.getUndoState().canUndo, false);
+});
+
+test("Desfazer um trecho preserva o restante do campo e aceita original vazio", () => {
+  const h = harness(); h.field.value = "Antes Original Depois";
+  const result = h.api.applyText("Novo", { selectedOnly: true, start: 6, end: 14, originalText: "Original" });
+  assert.equal(h.field.value, "Antes Novo Depois"); h.api.undoText(result.undoId);
+  assert.equal(h.field.value, "Antes Original Depois");
+  h.field.value = "";
+  const empty = h.api.applyText("Novo", { selectedOnly: false, originalText: "" });
+  h.api.undoText(empty.undoId); assert.equal(h.field.value, "");
+});
+
+test("Desfazer em contenteditable restaura os nós originais e a formatação", () => {
+  const h = harness({ type: "contenteditable", editable: true });
+  h.field.replaceChildren(new h.TextNode("Original", "strong"));
+  const originalMarkup = h.field.innerHTML;
+  const result = h.api.applyText("Novo", { selectedOnly: false, originalText: "Original" });
+  assert.equal(h.field.innerText, "Novo");
+  h.api.undoText(result.undoId);
+  assert.equal(h.field.innerText, "Original"); assert.equal(h.field.innerHTML, originalMarkup);
+});
+
+test("Edição posterior, inclusive se o texto voltar ao mesmo valor, invalida Desfazer", () => {
+  const h = harness();
+  const result = h.api.applyText("Novo", { selectedOnly: false, originalText: "Original" });
+  h.field.value = "Novo editado"; h.listeners.input({ target: h.field, isTrusted: true });
+  h.field.value = "Novo";
+  assert.throws(() => h.api.undoText(result.undoId), /Não há uma sugestão/);
+  assert.equal(h.field.value, "Novo");
+});
+
+test("Desfazer preserva mudanças do site e recusa campo removido ou bloqueado", () => {
+  for (const alter of [h => { h.field.value = "Mudado pelo site"; }, h => { h.field.isConnected = false; }, h => { h.field.readOnly = true; }]) {
+    const h = harness(); const result = h.api.applyText("Novo", { selectedOnly: false, originalText: "Original" });
+    alter(h); const text = h.field.value;
+    assert.throws(() => h.api.undoText(result.undoId), /Não há uma sugestão/);
+    assert.equal(h.field.value, text);
+  }
+});
+
+test("Desfazer atua somente no campo original e na última aplicação", () => {
+  const h = harness();
+  const first = h.api.applyText("Primeira", { selectedOnly: false, originalText: "Original" });
+  const second = h.api.applyText("Segunda", { selectedOnly: false, originalText: "Primeira" });
+  assert.throws(() => h.api.undoText(first.undoId), /alteração mais recente/);
+  const other = new h.HTMLElement(); h.listeners.focusin({ target: other });
+  assert.equal(h.api.getUndoState().canUndo, false); assert.throws(() => h.api.undoText(second.undoId));
+  h.listeners.focusin({ target: h.field }); h.api.undoText(second.undoId);
+  assert.equal(h.field.value, "Primeira"); assert.equal(h.api.getUndoState().canUndo, false);
+});
+
+test("Popup consulta e desfaz sem receber o texto guardado na memória da página", () => {
+  const h = harness(); const events = []; h.api.onHistoryChange(action => events.push(action));
+  const applied = h.message({ type: "APPLY_TEXT", text: "Novo", snapshot: { selectedOnly: false, originalText: "Original" } });
+  assert.equal(applied.ok, true);
+  const state = h.message({ type: "GET_UNDO_STATE" });
+  assert.deepEqual(Object.keys(state).sort(), ["canUndo", "ok", "undoId"]);
+  assert.equal(h.message({ type: "UNDO_APPLIED_TEXT", undoId: state.undoId }).ok, true);
+  assert.equal(h.field.value, "Original"); assert.deepEqual(events, ["applied", "undone"]);
+});
+
+test("Mudança de formatação posterior também impede desfazer em contenteditable", () => {
+  const h = harness({ type: "contenteditable", editable: true });
+  const result = h.api.applyText("Novo", { selectedOnly: false, originalText: "Original" });
+  h.field.replaceChildren(new h.TextNode("Novo", "em"));
+  assert.equal(h.api.getUndoState().canUndo, false);
+  assert.throws(() => h.api.undoText(result.undoId)); assert.equal(h.field.innerHTML, "<em>Novo</em>");
+});
+
+test("Aplicação sem mudança mantém a última alteração disponível para desfazer", () => {
+  const h = harness();
+  const first = h.api.applyText("Novo", { selectedOnly: false, originalText: "Original" });
+  const second = h.api.applyText("Novo", { selectedOnly: false, originalText: "Novo" });
+  assert.equal(second.undoId, first.undoId);
+  h.api.undoText(second.undoId); assert.equal(h.field.value, "Original");
+});
+
+test("Eventos de edição do próprio contenteditable não apagam a restauração anterior", () => {
+  const h = harness({ type: "contenteditable", editable: true });
+  h.document.execCommand = () => {
+    h.field.innerText = "Novo"; h.listeners.input({ target: h.field, isTrusted: true }); return true;
+  };
+  const first = h.api.applyText("Novo", { selectedOnly: false, originalText: "Original" });
+  const second = h.api.applyText("Novo", { selectedOnly: false, originalText: "Novo" });
+  assert.equal(second.undoId, first.undoId);
+  h.api.undoText(second.undoId); assert.equal(h.field.innerText, "Original");
+});

@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.6.5
+# Texto IA — GHS Studio · 0.6.6
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -48,6 +48,12 @@ Marque Lembrar chave neste dispositivo e clique em Salvar. Os perfis lembrados f
 - Pausar a revisão ou ocultar o botão impede chamadas automáticas naquela página.
 - Respostas de texto desatualizado, incompletas, bloqueadas ou de outra conexão não são aplicadas.
 - Há limite de 1.500 caracteres na instrução. Campos protegidos por senha, autocomplete de acesso/cartão, somente leitura ou data-texto-ia-ignore são excluídos.
+
+## Desfazer uma sugestão
+
+Depois de aplicar, abra o robô flutuante ou a aba Revisar texto e clique em Desfazer sugestão para restaurar o texto anterior. Funciona também com Aplicar sem confirmação e revisões de trechos selecionados.
+
+Há um nível de desfazer: uma nova aplicação substitui a anterior. Uma edição posterior, o envio/limpeza do campo, sua remoção ou bloqueio desativa a restauração para preservar o conteúdo atual. O texto anterior fica somente na memória daquela página; recarregar ou fechar a página descarta a possibilidade de desfazer. A restauração não faz outra chamada de IA.
 
 ## Gemini: modelo, demora e erros
 

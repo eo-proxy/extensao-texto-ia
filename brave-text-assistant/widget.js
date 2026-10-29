@@ -76,6 +76,7 @@
           <div class="actions"><button class="apply primary" type="button">Aplicar</button><button class="discard secondary" type="button">Descartar</button></div>
         </div>
         <div class="actions"><button class="generate secondary" type="button">Revisar agora</button></div>
+        <div class="actions undo-actions" hidden><button class="undo secondary" type="button">↶ Desfazer sugestão</button></div>
         <p class="hint">Digite para recolher. Após 2,5 s de pausa, uma nova revisão começa.</p>
         <button class="hide-widget" type="button">Ocultar botão · reative pelo ícone da extensão</button>
         <p class="creator">Criado por GHS Studio</p>
@@ -89,6 +90,7 @@
   const suggestionWrap = $(".suggestion-wrap");
   const suggestionInput = $(".suggestion");
   const generateButton = $(".generate");
+  const undoActions = $(".undo-actions");
   const autoInput = $(".auto");
   const autoApplyInput = $(".auto-apply");
   const instructionSelect = $(".instruction");
@@ -100,6 +102,15 @@
   let composing = false, applying = false, drag = null, dragged = false;
   let bubblePosition = null, autoOpenedForSuggestion = false;
 
+  function updateUndoButton() { undoActions.hidden = !editor.getUndoState().canUndo; }
+  editor.onHistoryChange((action) => {
+    updateUndoButton();
+    if (action === "undone" || (action === "applied" && !applying)) {
+      clearTimeout(timer); cancelCurrent(); clearSuggestion(); rememberAppliedText(editor.getActiveElement());
+      if (autoOpenedForSuggestion) collapse();
+      setStatus(action === "undone" ? "Texto anterior restaurado." : "Sugestão aplicada. Use Desfazer se quiser voltar ao texto anterior.");
+    }
+  });
   function setStatus(message, error = false) {
     status.textContent = message;
     status.classList.toggle("error", error);
@@ -116,6 +127,7 @@
       autoOpenedForSuggestion = forSuggestion;
     }
     bubble.hidden = true; panel.hidden = false; host.classList.add("expanded");
+    updateUndoButton();
     requestAnimationFrame(clampPosition);
   }
   function collapse() {
@@ -336,6 +348,12 @@
     cancelCurrent(); clearSuggestion(); lastRequestedText = ""; lastInputAt = Date.now();
     savePreferences({ widgetInstruction: instructionSelect.value }); scheduleAutomaticSuggestion();
   });
+  $(".undo").addEventListener("click", () => {
+    applying = true;
+    try { editor.undoText(editor.getUndoState().undoId); }
+    catch (error) { setStatus(error.message, true); updateUndoButton(); }
+    finally { applying = false; }
+  });
   generateButton.addEventListener("click", () => generateSuggestion(true));
   $(".discard").addEventListener("click", () => finishSuggestion("Sugestão descartada."));
   $(".apply").addEventListener("click", () => {
@@ -346,9 +364,6 @@
     } catch (error) { setStatus(error.message, true); }
     finally { applying = false; }
   });
+  updateUndoButton();
   loadConfig();
 })();
-
-
-
-

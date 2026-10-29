@@ -15,17 +15,25 @@ class Element {
 }
 const flush = async () => { await new Promise(setImmediate); await new Promise(setImmediate); };
 async function harness({ pending = false } = {}) {
-  const controls = Object.fromEntries([".bubble", ".panel", ".status", ".suggestion-wrap", ".suggestion", ".generate", ".auto", ".auto-apply", ".instruction", ".header", ".minimize", ".hide-widget", ".discard", ".apply"].map((key) => [key, new Element()]));
+  const controls = Object.fromEntries([".bubble", ".panel", ".status", ".suggestion-wrap", ".suggestion", ".generate", ".auto", ".auto-apply", ".instruction", ".header", ".minimize", ".hide-widget", ".discard", ".apply", ".undo-actions", ".undo"].map((key) => [key, new Element()]));
   controls[".panel"].hidden = true; controls[".instruction"].value = "professional";
   const host = new Element(); host.attachShadow = () => ({ querySelector: (selector) => controls[selector] });
   const field = { isConnected: true, value: "" }, docListeners = {}, winListeners = {}, requests = [], cancelled = [];
   let now = 1000, timerId = 0, applied = 0, runtimeListener;
   const timers = new Map();
   const config = { ok: true, provider: "gemini", model: "gemini-3.6-flash", revision: "test", configured: true, autoEnabled: true, autoApplyEnabled: false, widgetEnabled: true, widgetInstruction: "professional" };
+  let undo = null, undoSerial = 0; const historyListeners = [];
+  const notifyHistory = action => historyListeners.forEach(listener => listener(action));
   const editor = {
     readText: () => ({ text: field.value, selectedOnly: false, start: 0, end: field.value.length }),
     getActiveElement: () => field, getLastRange: () => null, isAutoEditable: (element) => element === field,
-    applyText: (text) => { field.value = text; applied += 1; }
+    getUndoState: () => ({ canUndo: Boolean(undo && field.value === undo.after), undoId: undo?.id ?? null }),
+    onHistoryChange: listener => { historyListeners.push(listener); },
+    undoText: id => {
+      if (!undo || undo.id !== id || field.value !== undo.after) throw new Error("Não há sugestão para desfazer.");
+      field.value = undo.before; undo = null; notifyHistory("undone");
+    },
+    applyText: text => { undo = { id: ++undoSerial, before: field.value, after: text }; field.value = text; applied += 1; notifyHistory("applied"); }
   };
   const document = { documentElement: { appendChild() {} }, visibilityState: "visible", createElement: () => host, addEventListener: (name, fn) => { docListeners[name] = fn; } };
   const window = { innerWidth: 1000, innerHeight: 800, __braveTextAssistantApi: editor, addEventListener: (name, fn) => { winListeners[name] = fn; } };
@@ -52,7 +60,7 @@ async function harness({ pending = false } = {}) {
   await flush();
   return {
     controls, field, requests, cancelled, config, host, get applied() { return applied; },
-    input(text, isTrusted = true) { field.value = text; docListeners.input({ target: field, isTrusted }); },
+    input(text, isTrusted = true) { if (isTrusted) { undo = null; notifyHistory("invalidated"); } field.value = text; docListeners.input({ target: field, isTrusted }); },
     async advance(ms) {
       const target = now + ms;
       while (true) {
@@ -143,3 +151,33 @@ test("Chamada sem resposta não bloqueia a próxima revisão", async () => {
   await h.advance(2500); assert.equal(h.requests.length, 2);
 });
 
+
+test("Botão Desfazer restaura aplicação manual e não inicia outra revisão", async () => {
+  const h = await harness();
+  h.input("Meu texto"); await h.advance(2500); h.controls[".apply"].fire("click");
+  assert.equal(h.controls[".undo-actions"].hidden, false);
+  h.open(); h.controls[".undo"].fire("click");
+  assert.equal(h.field.value, "Meu texto"); assert.equal(h.controls[".undo-actions"].hidden, true);
+  await h.advance(10000); assert.equal(h.requests.length, 1);
+});
+
+test("Botão Desfazer também restaura uma correção aplicada automaticamente", async () => {
+  const h = await harness();
+  h.controls[".auto-apply"].checked = true; h.controls[".auto-apply"].fire("change");
+  h.input("Meu original"); await h.advance(2500);
+  assert.equal(h.field.value, "Revisado 1"); h.open(); h.controls[".undo"].fire("click");
+  assert.equal(h.field.value, "Meu original");
+  await h.advance(10000); assert.equal(h.requests.length, 1);
+});
+
+test("Desfazer cancela revisão em andamento e ignora a resposta atrasada", async () => {
+  const h = await harness({ pending: true });
+  h.input("Original"); await h.advance(2500);
+  h.requests[0].resolve({ ok: true, suggestion: "Versão aplicada" }); await flush();
+  h.controls[".apply"].fire("click"); h.open(); h.controls[".generate"].fire("click");
+  assert.equal(h.requests.length, 2);
+  h.controls[".undo"].fire("click"); assert.equal(h.field.value, "Original");
+  assert.equal(h.cancelled.length, 1);
+  h.requests[1].resolve({ ok: true, suggestion: "Atrasada" }); await flush();
+  assert.equal(h.controls[".suggestion-wrap"].hidden, true); assert.equal(h.field.value, "Original");
+});

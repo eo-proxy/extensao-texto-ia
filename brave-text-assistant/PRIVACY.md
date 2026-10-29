@@ -20,6 +20,10 @@ A geração automática vem ligada depois da configuração. Aplicar sem confirm
 
 Não coleta o conteúdo completo das páginas ou o histórico de navegação. As revisões não são armazenadas no disco pela extensão; permanecem temporariamente na interface/campo e na memória da chamada.
 
+## Desfazer
+
+Para permitir Desfazer sugestão, a última versão anterior à aplicação fica temporariamente na memória do script daquela página, incluindo os nós originais de editores ricos. Não é enviada ao provedor durante a restauração nem gravada em disco. Uma nova aplicação substitui esse registro; uma edição posterior o invalida. Recarregar ou fechar a página descarta o registro.
+
 ## Modelos, teste e diagnóstico
 
 Consultar modelos envia a chave ao endpoint oficial da conta e filtra modelos de texto. Listar não comprova saldo, cota ou acesso de geração. Testar Conexão usa uma frase fixa e pode ter cobrança.

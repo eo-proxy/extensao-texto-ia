@@ -3,6 +3,7 @@ import { PROVIDERS, getProvider, normalizeModel, validateKey } from "./providers
 
 const $ = (id) => document.getElementById(id);
 let snapshot = null, sourceText = "", sourceTabId = null;
+let undoTabId = null, undoId = null, undoRefresh = 0, rewriteSerial = 0;
 let selectedProvider = "openai", profiles = {}, diagnostics = {}, modelCatalog = [];
 let settingsBusy = false, permissionGranted = false, renderVersion = 0;
 
@@ -21,6 +22,7 @@ function showView(settings) {
   $("settingsToggle").classList.toggle("active", settings);
   $("reviewTab").classList.toggle("active", !settings);
   $("panelContent").scrollTop = 0;
+  if (!settings) refreshUndoState();
 }
 function openSettings() { showView(true); }
 function currentValues() {
@@ -218,6 +220,7 @@ $("forgetKey").addEventListener("click", async () => {
 async function sendToActiveTab(message) {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab?.id) throw new Error("Não encontrei uma aba ativa.");
+  if (message.type === "UNDO_APPLIED_TEXT" && tab.id !== undoTabId) throw new Error("Volte à aba onde a sugestão foi aplicada para desfazer.");
   if (message.type === "APPLY_TEXT" && tab.id !== sourceTabId) throw new Error("Volte à aba onde o texto foi lido para aplicar a sugestão.");
   try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js", "widget.js"] }); }
   catch (_) { throw new Error("Esta página não permite a leitura do texto. Experimente em um site comum."); }
@@ -227,6 +230,30 @@ async function sendToActiveTab(message) {
   if (!response?.ok) throw new Error(response?.error || "Não consegui ler o campo de texto.");
   return { ...response, tabId: tab.id };
 }
+
+async function refreshUndoState() {
+  const refresh = ++undoRefresh;
+  try {
+    const result = await sendToActiveTab({ type: "GET_UNDO_STATE" });
+    if (refresh !== undoRefresh) return;
+    undoTabId = result.tabId; undoId = result.undoId;
+    $("undoButton").classList.toggle("hidden", !result.canUndo);
+  } catch (_) {
+    if (refresh !== undoRefresh) return;
+    undoTabId = null; undoId = null; $("undoButton").classList.add("hidden");
+  }
+}
+$("undoButton").addEventListener("click", async () => {
+  const button = $("undoButton"); button.disabled = true;
+  try {
+    await sendToActiveTab({ type: "UNDO_APPLIED_TEXT", undoId });
+    rewriteSerial += 1; snapshot = null; sourceText = ""; sourceTabId = null;
+    $("sourceText").textContent = ""; $("suggestion").value = "";
+    $("sourceWrap").classList.add("hidden"); $("suggestionWrap").classList.add("hidden"); $("rewriteButton").classList.add("hidden");
+    setStatus("Texto anterior restaurado.");
+  } catch (error) { setStatus(error.message, true); }
+  finally { button.disabled = false; await refreshUndoState(); }
+});
 
 $("readButton").addEventListener("click", async () => {
   try {
@@ -247,6 +274,7 @@ $("rewriteButton").addEventListener("click", async () => {
   const provider = selectedProvider;
   const apiKey = profiles[provider]?.apiKey;
   if (!apiKey) { openSettings(); return setSettingsStatus("Configure seu provedor antes de gerar a sugestão.", true); }
+  const rewrite = ++rewriteSerial;
   const button = $("rewriteButton");
   button.disabled = true;
   button.textContent = "Gerando…";
@@ -257,11 +285,12 @@ $("rewriteButton").addEventListener("click", async () => {
       instruction: $("instruction").value.trim(),
       text: sourceText
     });
+    if (rewrite !== rewriteSerial) return;
     if (!response?.ok) throw new Error(response?.error || "Falha ao gerar a sugestão.");
     $("suggestion").value = response.suggestion;
     $("suggestionWrap").classList.remove("hidden");
     setStatus("Sugestão pronta. Edite se quiser e aplique quando estiver satisfeito.");
-  } catch (error) { setStatus(error.message, true); }
+  } catch (error) { if (rewrite === rewriteSerial) setStatus(error.message, true); }
   finally { button.disabled = false; button.textContent = "Gerar sugestão"; }
 });
 
@@ -269,7 +298,8 @@ $("applyButton").addEventListener("click", async () => {
   try {
     await sendToActiveTab({ type: "APPLY_TEXT", text: $("suggestion").value, snapshot });
     $("suggestionWrap").classList.add("hidden");
-    setStatus("Texto aplicado ao campo original.");
+    setStatus("Texto aplicado. Use Desfazer sugestão se quiser restaurar o anterior.");
+    await refreshUndoState();
   } catch (error) { setStatus(error.message, true); }
 });
 
@@ -294,4 +324,4 @@ document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("clic
   $("instruction").value = chip.dataset.instruction;
 }));
 
-loadSettings(true).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));
+loadSettings(true).then(refreshUndoState).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));

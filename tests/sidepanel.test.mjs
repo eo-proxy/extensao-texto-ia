@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { mockChrome } from "./mock-chrome.mjs";
+import { contentHarness } from "./content-harness.mjs";
 class Element {
   constructor(id = "") {
     Object.assign(this, { id, value: "", textContent: "", disabled: false, hidden: false, type: "password", checked: false, children: [], listeners: {} });
@@ -127,4 +128,84 @@ test("Troca de abas reinicia apenas a rolagem do conteúdo e atualiza a navegaç
   assert.equal(elements.reviewView.classList.contains("hidden"), true);
   assert.equal(elements.settings.classList.contains("hidden"), false);
   assert.equal(elements.settingsToggle["aria-selected"], "true");
+});
+
+test("Popup aplica e desfaz usando o script do campo e recupera Desfazer ao voltar à aba", async () => {
+  const content = contentHarness();
+  const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
+  env.chrome.scripting = { executeScript: async () => {} };
+  env.chrome.tabs.query = async () => [{ id: 7 }];
+  env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
+  try {
+    await elements.readButton.fire("click"); elements.suggestion.value = "Revisado";
+    await elements.applyButton.fire("click");
+    assert.equal(content.field.value, "Revisado");
+    assert.equal(elements.undoButton.classList.contains("hidden"), false);
+    elements.undoButton.classList.add("hidden");
+    elements.reviewTab.fire("click"); await flush();
+    assert.equal(elements.undoButton.classList.contains("hidden"), false);
+    await elements.undoButton.fire("click");
+    assert.equal(content.field.value, "Original");
+    assert.equal(elements.undoButton.classList.contains("hidden"), true);
+    assert.equal(elements.suggestionWrap.classList.contains("hidden"), true);
+    assert.match(elements.status.textContent, /Texto anterior restaurado/);
+  } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; delete env.chrome.scripting; }
+});
+
+test("Popup permite desfazer aplicação feita pelo robô, inclusive após reabrir a revisão", async () => {
+  const content = contentHarness();
+  content.api.applyText("Automático", { selectedOnly: false, originalText: "Original" });
+  const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
+  env.chrome.scripting = { executeScript: async () => {} };
+  env.chrome.tabs.query = async () => [{ id: 8 }];
+  env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
+  try {
+    elements.reviewTab.fire("click"); await flush();
+    assert.equal(elements.undoButton.classList.contains("hidden"), false);
+    await elements.undoButton.fire("click"); assert.equal(content.field.value, "Original");
+  } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; delete env.chrome.scripting; }
+});
+
+test("Popup preserva edições posteriores e recusa Desfazer em uma outra aba", async () => {
+  const first = contentHarness(), other = contentHarness(); let tabId = 9;
+  const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
+  env.chrome.scripting = { executeScript: async () => {} };
+  env.chrome.tabs.query = async () => [{ id: tabId }];
+  env.chrome.tabs.sendMessage = async (id, message) => (id === 9 ? first : other).message(message);
+  try {
+    first.api.applyText("Revisado", { selectedOnly: false, originalText: "Original" });
+    elements.reviewTab.fire("click"); await flush();
+    tabId = 10; await elements.undoButton.fire("click");
+    assert.equal(first.field.value, "Revisado"); assert.equal(other.field.value, "Original");
+    assert.match(elements.status.textContent, /Volte à aba/);
+    tabId = 9; elements.reviewTab.fire("click"); await flush();
+    first.field.value = "Texto novo digitado";
+    await elements.undoButton.fire("click");
+    assert.equal(first.field.value, "Texto novo digitado");
+    assert.equal(elements.undoButton.classList.contains("hidden"), true);
+  } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; delete env.chrome.scripting; }
+});
+
+test("Desfazer no popup invalida uma geração manual que termina depois", async () => {
+  const content = contentHarness();
+  content.api.applyText("Aplicado", { selectedOnly: false, originalText: "Original" });
+  const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage, originalFetch = globalThis.fetch;
+  env.chrome.scripting = { executeScript: async () => {} };
+  env.chrome.tabs.query = async () => [{ id: 11 }];
+  env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
+  let resolveGeneration;
+  try {
+    elements.apiKey.value = "test-google-key"; elements.model.value = "gemini-3.6-flash";
+    await elements.saveSettings.fire("click");
+    await elements.readButton.fire("click");
+    elements.reviewTab.fire("click"); await flush();
+    globalThis.fetch = () => new Promise(resolve => { resolveGeneration = resolve; });
+    const generating = elements.rewriteButton.fire("click"); await flush();
+    assert.equal(typeof resolveGeneration, "function");
+    await elements.undoButton.fire("click"); assert.equal(content.field.value, "Original");
+    resolveGeneration({ ok: true, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Atrasada" }] } }] }) });
+    await generating;
+    assert.equal(elements.suggestionWrap.classList.contains("hidden"), true);
+    assert.equal(content.field.value, "Original");
+  } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; globalThis.fetch = originalFetch; delete env.chrome.scripting; }
 });
