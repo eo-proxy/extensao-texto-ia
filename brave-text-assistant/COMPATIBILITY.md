@@ -1,4 +1,4 @@
-# Compatibilidade de navegadores — Texto IA 0.8.0
+# Compatibilidade de navegadores — Texto IA 0.8.1
 
 Contrato do manifesto e testes locais reconferidos em 04/11/2026. A matriz de portabilidade conserva a pesquisa documental de 26/10/2026. A extensão é um pacote Manifest V3 para navegadores de computador baseados em Chromium. Não é um pacote universal para todos os navegadores.
 

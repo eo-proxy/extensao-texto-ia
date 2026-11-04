@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.8.0
+# Texto IA — GHS Studio · 0.8.1
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 

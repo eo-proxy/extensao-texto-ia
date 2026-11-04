@@ -1,7 +1,8 @@
 export const CACHE_TTL_MS = 60000;
 export class RevisionCache {
   #entries = new Map();
-  constructor({ now = Date.now, delay = setTimeout, cancel = clearTimeout, ttl = CACHE_TTL_MS, maxEntries = 32, maxPerScope = 4 } = {}) {
+  // Métodos nativos de temporização exigem o contexto global do navegador.
+  constructor({ now = Date.now, delay = (callback, ms) => globalThis.setTimeout(callback, ms), cancel = timer => globalThis.clearTimeout(timer), ttl = CACHE_TTL_MS, maxEntries = 32, maxPerScope = 4 } = {}) {
     if (![ttl, maxEntries, maxPerScope].every(value => Number.isSafeInteger(value) && value > 0)) throw new Error("Limite de memória inválido.");
     Object.assign(this, { now, delay, cancel, ttl, maxEntries, maxPerScope });
   }

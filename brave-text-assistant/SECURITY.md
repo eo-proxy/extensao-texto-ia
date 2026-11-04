@@ -1,4 +1,4 @@
-# Revisão de segurança — Texto IA 0.8.0
+# Revisão de segurança — Texto IA 0.8.1
 
 Revisão do código e testes automatizados locais em 04/11/2026, orientados pela skill secure-code-guardian v1.1.0. A skill fornece um roteiro de análise e implementação; não é um scanner automático. Este documento registra os controles verificados e seus limites.
 
@@ -8,6 +8,7 @@ A inspeção e os testes locais não identificaram envio de chaves/textos para d
 
 Foram corrigidos/reforçados:
 
+- Chamadas de temporização do cache usam o contexto global do navegador. Testes com receptores estritos cobrem o erro Illegal invocation, criação/cancelamento e geração nas três APIs.
 - Registro do trabalho antes de aguardar permissão/hash, permitindo cancelamento durante a preparação sem iniciar a API.
 - Verificação de aba, frame e origem antes de compartilhar uma revisão em andamento; a confirmação após a resposta continua obrigatória.
 - Limite de 32.000 caracteres da sugestão e descarte de blocos de resposta que não são texto.
@@ -69,7 +70,7 @@ A autorização/permissão e a revisão da configuração são verificadas inclu
 
 ## Validação e limites
 
-147 testes automatizados passaram nesta revisão. Cobrem limites/expiração/descarte do cache, deduplicação nos três provedores, métricas numéricas, cancelamento durante a preparação e após navegação, falha do diagnóstico, além de autorização por site, persistência/reinício, isolamento de origens/abas, corrida ao desativar/reativar, bloqueio antes da rede, mensagens forjadas, entrada HTML, privacidade do diagnóstico, armazenamento, cancelamento, Desfazer e política do manifesto. A conferência de empacotamento compara os arquivos do ZIP com os fontes. O projeto não possui dependências npm de execução.
+151 testes automatizados passaram nesta revisão. Cobrem limites/expiração/descarte do cache, deduplicação nos três provedores, métricas numéricas, cancelamento durante a preparação e após navegação, falha do diagnóstico, além de autorização por site, persistência/reinício, isolamento de origens/abas, corrida ao desativar/reativar, bloqueio antes da rede, mensagens forjadas, entrada HTML, privacidade do diagnóstico, armazenamento, cancelamento, Desfazer e política do manifesto. A conferência de empacotamento compara os arquivos do ZIP com os fontes. O projeto não possui dependências npm de execução.
 
 Não foi realizado teste ponta a ponta com uma conta real de cada provedor ou em todos os navegadores. Editores complexos podem precisar de adaptação. As proteções observadas e os testes locais não constituem garantia de ausência total de vulnerabilidades nem auditoria externa.
 

@@ -1,6 +1,10 @@
 # Texto IA — GHS Studio
 
-Extensão **0.8.0** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+Extensão **0.8.1** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+
+## Correção 0.8.1
+
+Corrige Illegal invocation ao preparar o cache depois da resposta da API. Os temporizadores usam explicitamente o contexto global do navegador. Os testes agora reproduzem a exigência de contexto que o Node não impõe, cobrindo criação, cancelamento e geração nas três integrações. A validação segue local, com respostas simuladas.
 
 ## Economia de chamadas e segurança
 

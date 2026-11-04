@@ -1,6 +1,12 @@
-# Otimização de consumo — Texto IA 0.8.0
+# Otimização de consumo — Texto IA 0.8.1
 
 Revisão em 04/11/2026. A otimização se aplica a OpenAI (Responses e Chat Completions), Gemini Developer API e Claude Messages. Nenhuma troca automática de modelo, truncamento de texto ou redução nova de raciocínio/limite de saída foi introduzida.
+
+## Correção do contexto dos temporizadores
+
+A 0.8.0 guardava setTimeout/clearTimeout diretamente no objeto do cache e os chamava como métodos desse objeto. No navegador, um receptor incompatível pode produzir Illegal invocation e impedir a entrega da sugestão após a API responder. A 0.8.1 usa chamadas explícitas em globalThis, preservando o prazo e o cancelamento.
+
+Quatro testes de regressão falharam antes da correção e passaram depois: um cobre criação/remoção de temporizadores; os outros três exercitam geração, reutilização e limpeza por navegação em OpenAI, Gemini e Claude. As funções simuladas rejeitam receptores incompatíveis, uma exigência ausente nos temporizadores do Node. Isso não substitui um teste nativo do Brave. [Especificação HTML: temporizadores](https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers).
 
 ## O que mudou
 
