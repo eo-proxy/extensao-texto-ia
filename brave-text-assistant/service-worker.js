@@ -1,15 +1,35 @@
+import { SITE_KEY_PREFIX, siteOrigin, getSitePreference, saveSitePreference } from "./site-preferences.mjs";
 import { getProvider } from "./providers.mjs";
 import { initializeStorage, getSettings, getSettingsForPage, selectProvider, saveProviderSettings, disableRemembering, removeProviderKey, markVerified } from "./settings.mjs";
 import { listProviderModels, rewriteWithProvider, apiFailure } from "./provider-api.mjs";
 
 const ready = initializeStorage().then(() => true, () => false);
-const PRIVILEGED = new Set(["GET_SETTINGS", "SELECT_PROVIDER", "SAVE_PROVIDER_SETTINGS", "DISABLE_REMEMBERING", "REMOVE_PROVIDER_KEY", "LIST_PROVIDER_MODELS", "TEST_PROVIDER"]);
+const PRIVILEGED = new Set(["GET_SITE_CONTEXT", "GET_SETTINGS", "SELECT_PROVIDER", "SAVE_PROVIDER_SETTINGS", "DISABLE_REMEMBERING", "REMOVE_PROVIDER_KEY", "LIST_PROVIDER_MODELS", "TEST_PROVIDER"]);
 const jobs = new Map();
 const blockedUntil = new Map();
 
 function trustedPage(sender) {
   return sender.id === chrome.runtime.id && sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL("sidepanel.html");
 }
+async function currentSite(sender, expectedTab) {
+  if (trustedPage(sender)) {
+    const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+    if (!tab || !Number.isInteger(tab.id)) throw new Error("Abra uma página comum para escolher a revisão por site.");
+    if (expectedTab !== undefined && (!Number.isInteger(expectedTab) || tab.id !== expectedTab)) throw new Error("Volte à aba onde o texto foi lido para revisar.");
+    return { origin: siteOrigin(tab.url), tabId: tab.id };
+  }
+  if (!Number.isInteger(sender.tab?.id) || (sender.frameId ?? 0) !== 0) throw new Error("Origem da página inválida.");
+  const origin = siteOrigin(sender.url || sender.tab.url);
+  if (sender.tab.url && siteOrigin(sender.tab.url) !== origin) throw new Error("Origem da página inválida.");
+  return { origin, tabId: sender.tab.id };
+}
+async function requireSiteEnabled(origin, revision) {
+  const preference = await getSitePreference(origin);
+  if (!preference.siteEnabled) throw apiFailure("Ative Usar IA neste site no robô ou em Revisar texto.", "SITE_BLOCKED");
+  if (revision !== undefined && preference.siteRevision !== revision) throw apiFailure("A escolha para este site mudou. Gere outra sugestão.", "CANCELLED");
+  return preference;
+}
+function cancelSiteJobs(origin) { for (const job of jobs.values()) if (job.siteOrigin === origin) job.controller.abort(); }
 function requestScope(sender) { return String(sender.tab?.id ?? "popup") + ":" + String(sender.frameId ?? 0); }
 function cancelJobs() { for (const job of jobs.values()) job.controller.abort(); jobs.clear(); }
 async function requirePermission(provider) {
@@ -34,27 +54,33 @@ async function diagnose(settings, startedAt, outcome) {
   await chrome.storage.session.set({ diagnostics });
 }
 async function generate(message, sender, test = false) {
+  const site = test ? null : await currentSite(sender, message.tabId);
+  if (site && trustedPage(sender) && message.siteOrigin !== site.origin) throw apiFailure("A página mudou. Leia o campo novamente antes de revisar.", "SITE_BLOCKED");
+  const preference = site ? await requireSiteEnabled(site.origin) : null;
   const settings = await getSettings(test ? message.provider : undefined);
   await requirePermission(settings.provider);
   const key = requestScope(sender);
   if (jobs.has(key)) jobs.get(key).controller.abort();
-  const job = { controller: new AbortController(), id: message.requestId || "manual" };
+  const job = { controller: new AbortController(), id: message.requestId || "manual", siteOrigin: site?.origin || null };
   jobs.set(key, job);
   const startedAt = Date.now();
   try {
     const block = blockedUntil.get(settings.revision);
     if (block?.until > Date.now()) throw apiFailure("A API pediu uma pausa. Aguarde " + Math.ceil((block.until - Date.now()) / 1000) + " s antes de tentar novamente.", block.code, block.status, block.until - Date.now());
+    if (site) await requireSiteEnabled(site.origin, preference.siteRevision);
+    if (job.controller.signal.aborted) throw apiFailure("Revisão cancelada.", "CANCELLED");
     const suggestion = await rewriteWithProvider(
       settings, test ? "Olá, este é um teste de conexão." : message.text,
       test ? "Corrija apenas a ortografia." : message.instruction,
       { signal: job.controller.signal }
     );
     if (job.controller.signal.aborted || (await getSettings()).revision !== settings.revision) throw apiFailure("Revisão cancelada.", "CANCELLED");
+    if (site) await requireSiteEnabled(site.origin, preference.siteRevision);
     await diagnose(settings, startedAt, { code: "OK", httpStatus: 200 });
     if (test) { await markVerified(settings); return { tested: true, durationMs: Date.now() - startedAt }; }
     return { suggestion, durationMs: Date.now() - startedAt };
   } catch (error) {
-    if (error.code !== "CANCELLED" && !job.controller.signal.aborted) {
+    if (!["CANCELLED", "SITE_BLOCKED"].includes(error.code) && !job.controller.signal.aborted) {
       await diagnose(settings, startedAt, publicError(error));
       if (error.retryAfterMs > 0) blockedUntil.set(settings.revision, { until: Date.now() + error.retryAfterMs, code: error.code, status: error.httpStatus });
     }
@@ -65,6 +91,17 @@ async function generate(message, sender, test = false) {
 async function handleMessage(message, sender) {
   if (!await ready) throw new Error("Não foi possível preparar a extensão. Recarregue-a no navegador.");
   if (PRIVILEGED.has(message.type) && !trustedPage(sender)) throw new Error("Esta operação só pode ser feita nas configurações da extensão.");
+  if (!trustedPage(sender)) await currentSite(sender);
+  if (message.type === "GET_SITE_CONTEXT") {
+    const site = await currentSite(sender);
+    return { ...(await getSitePreference(site.origin)), tabId: site.tabId };
+  }
+  if (message.type === "SET_SITE_PREFERENCE") {
+    const site = await currentSite(sender, trustedPage(sender) ? message.tabId : undefined);
+    const preference = await saveSitePreference(site.origin, message.enabled);
+    cancelSiteJobs(site.origin);
+    return { ...preference, tabId: site.tabId };
+  }
   if (message.type === "GET_SETTINGS") return getSettingsForPage();
   if (message.type === "SELECT_PROVIDER") {
     cancelJobs();
@@ -99,6 +136,7 @@ async function handleMessage(message, sender) {
     const prefs = await chrome.storage.local.get(["autoEnabled", "autoApplyEnabled", "widgetEnabled", "widgetInstruction", "widgetPosition"]);
     const permitted = await chrome.permissions.contains({ origins: [getProvider(settings.provider).host] });
     return {
+      ...(await getSitePreference((await currentSite(sender)).origin)),
       configured: Boolean(settings.apiKey && settings.model && permitted),
       provider: settings.provider, model: settings.model || "", revision: settings.revision || "",
       autoEnabled: prefs.autoEnabled !== false, autoApplyEnabled: prefs.autoApplyEnabled === true,
@@ -117,7 +155,7 @@ async function handleMessage(message, sender) {
   if (message.type === "AI_REWRITE") return generate(message, sender);
   throw new Error("Operação desconhecida.");
 }
-const ALLOWED = new Set([...PRIVILEGED, "GET_WIDGET_CONFIG", "SET_WIDGET_PREFS", "AI_REWRITE", "CANCEL_REWRITE"]);
+const ALLOWED = new Set([...PRIVILEGED, "GET_WIDGET_CONFIG", "SET_WIDGET_PREFS", "SET_SITE_PREFERENCE", "AI_REWRITE", "CANCEL_REWRITE"]);
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || !ALLOWED.has(message.type)) return;
   if (sender.id !== chrome.runtime.id) { sendResponse({ ok: false, error: "Origem da solicitação inválida." }); return; }
@@ -132,10 +170,10 @@ async function notifyWidgets() {
   } catch (_) {}
 }
 chrome.storage.onChanged.addListener((changes, area) => {
+  const siteKeys = area === "local" ? Object.keys(changes).filter(key => key.startsWith(SITE_KEY_PREFIX)) : [];
+  if (siteKeys.length) { for (const job of jobs.values()) if (siteKeys.includes(SITE_KEY_PREFIX + job.siteOrigin)) job.controller.abort(); notifyWidgets(); }
   const prefs = ["provider", "providerProfiles", "autoEnabled", "autoApplyEnabled", "widgetEnabled", "widgetInstruction"];
   if ((area === "local" && prefs.some((key) => Object.hasOwn(changes, key))) || (area === "session" && changes.activeProviderProfile)) notifyWidgets();
 });
 chrome.permissions.onAdded.addListener(notifyWidgets);
 chrome.permissions.onRemoved.addListener(() => { cancelJobs(); notifyWidgets(); });
-
-

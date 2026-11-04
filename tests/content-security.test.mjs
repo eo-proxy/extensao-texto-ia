@@ -102,13 +102,13 @@ test("Desfazer atua somente no campo original e na última aplicação", () => {
   assert.equal(h.field.value, "Primeira"); assert.equal(h.api.getUndoState().canUndo, false);
 });
 
-test("Popup consulta e desfaz sem receber o texto guardado na memória da página", () => {
+test("Popup consulta e desfaz sem receber o texto guardado na memória da página", async () => {
   const h = harness(); const events = []; h.api.onHistoryChange(action => events.push(action));
-  const applied = h.message({ type: "APPLY_TEXT", text: "Novo", snapshot: { selectedOnly: false, originalText: "Original" } });
+  const applied = await h.message({ type: "APPLY_TEXT", text: "Novo", snapshot: { selectedOnly: false, originalText: "Original" } });
   assert.equal(applied.ok, true);
-  const state = h.message({ type: "GET_UNDO_STATE" });
+  const state = await h.message({ type: "GET_UNDO_STATE" });
   assert.deepEqual(Object.keys(state).sort(), ["canUndo", "ok", "undoId"]);
-  assert.equal(h.message({ type: "UNDO_APPLIED_TEXT", undoId: state.undoId }).ok, true);
+  assert.equal((await h.message({ type: "UNDO_APPLIED_TEXT", undoId: state.undoId })).ok, true);
   assert.equal(h.field.value, "Original"); assert.deepEqual(events, ["applied", "undone"]);
 });
 
@@ -137,4 +137,23 @@ test("Eventos de edição do próprio contenteditable não apagam a restauraçã
   const second = h.api.applyText("Novo", { selectedOnly: false, originalText: "Novo" });
   assert.equal(second.undoId, first.undoId);
   h.api.undoText(second.undoId); assert.equal(h.field.innerText, "Original");
+});
+
+test("Sem autorização do site o conteúdo não é lido nem aplicado", async () => {
+  const h = harness({ allowSite: false });
+  assert.throws(() => h.api.readText(), /Ative/);
+  assert.throws(() => h.api.applyText("Novo", { originalText: "Original" }), /desativada/);
+  assert.equal((await h.message({ type: "READ_ACTIVE_TEXT" })).ok, false);
+  assert.equal((await h.message({ type: "APPLY_TEXT", text: "Novo", snapshot: { originalText: "Original" } })).ok, false);
+  assert.equal(h.field.value, "Original");
+});
+
+test("Mensagens de outras páginas e extensões não leem nem alteram o campo", async () => {
+  const h = harness();
+  for (const sender of [{ id: "other", url: "chrome-extension://test-extension/sidepanel.html" }, { id: "test-extension", url: "https://example.com/sidepanel.html" }, {}]) {
+    assert.equal((await h.message({ type: "READ_ACTIVE_TEXT" }, sender)).ok, false);
+    assert.equal((await h.message({ type: "APPLY_TEXT", text: "Novo", snapshot: { originalText: "Original" } }, sender)).ok, false);
+    assert.equal((await h.message({ type: "GET_UNDO_STATE" }, sender)).ok, false);
+  }
+  assert.equal(h.field.value, "Original");
 });

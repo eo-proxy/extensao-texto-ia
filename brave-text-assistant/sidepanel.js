@@ -2,8 +2,9 @@ import { connectionPresentation } from "./connection-presentation.mjs";
 import { PROVIDERS, getProvider, normalizeModel, validateKey } from "./providers.mjs";
 
 const $ = (id) => document.getElementById(id);
-let snapshot = null, sourceText = "", sourceTabId = null;
+let snapshot = null, sourceText = "", sourceTabId = null, sourceOrigin = null;
 let undoTabId = null, undoId = null, undoRefresh = 0, rewriteSerial = 0;
+let siteContext = null, siteRefresh = 0;
 let selectedProvider = "openai", profiles = {}, diagnostics = {}, modelCatalog = [];
 let settingsBusy = false, permissionGranted = false, renderVersion = 0;
 
@@ -22,7 +23,7 @@ function showView(settings) {
   $("settingsToggle").classList.toggle("active", settings);
   $("reviewTab").classList.toggle("active", !settings);
   $("panelContent").scrollTop = 0;
-  if (!settings) refreshUndoState();
+  if (!settings) { refreshUndoState(); refreshSiteContext(); }
 }
 function openSettings() { showView(true); }
 function currentValues() {
@@ -222,15 +223,45 @@ async function sendToActiveTab(message) {
   if (!tab?.id) throw new Error("Não encontrei uma aba ativa.");
   if (message.type === "UNDO_APPLIED_TEXT" && tab.id !== undoTabId) throw new Error("Volte à aba onde a sugestão foi aplicada para desfazer.");
   if (message.type === "APPLY_TEXT" && tab.id !== sourceTabId) throw new Error("Volte à aba onde o texto foi lido para aplicar a sugestão.");
+  let context = null;
+  if (["READ_ACTIVE_TEXT", "APPLY_TEXT"].includes(message.type)) {
+    context = await send({ type: "GET_SITE_CONTEXT" });
+    if (message.type === "APPLY_TEXT" && context.siteOrigin !== sourceOrigin) throw new Error("A página mudou. Leia o campo novamente antes de aplicar.");
+    if (context.tabId !== tab.id || !context.siteEnabled) throw new Error("Ative Usar IA neste site antes de revisar ou aplicar texto.");
+  }
   try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js", "widget.js"] }); }
   catch (_) { throw new Error("Esta página não permite a leitura do texto. Experimente em um site comum."); }
   let response;
   try { response = await chrome.tabs.sendMessage(tab.id, message); }
   catch (_) { throw new Error("Não consegui comunicar com o campo de texto desta página."); }
   if (!response?.ok) throw new Error(response?.error || "Não consegui ler o campo de texto.");
-  return { ...response, tabId: tab.id };
+  return { ...response, tabId: tab.id, siteOrigin: context?.siteOrigin || null };
 }
 
+async function refreshSiteContext() {
+  const refresh = ++siteRefresh;
+  try {
+    const context = await send({ type: "GET_SITE_CONTEXT" });
+    if (refresh !== siteRefresh) return;
+    siteContext = context; $("siteEnabled").checked = context.siteEnabled; $("siteEnabled").disabled = false;
+    $("siteLabel").textContent = context.siteLabel;
+  } catch (_) {
+    if (refresh !== siteRefresh) return;
+    siteContext = null; $("siteEnabled").checked = false; $("siteEnabled").disabled = true;
+    $("siteLabel").textContent = "Abra uma página comum para escolher.";
+  }
+}
+$("siteEnabled").addEventListener("change", async () => {
+  const enabled = $("siteEnabled").checked, previous = siteContext;
+  $("siteEnabled").disabled = true;
+  try {
+    if (!previous) throw new Error("Abra uma página comum para escolher a revisão por site.");
+    siteContext = await send({ type: "SET_SITE_PREFERENCE", enabled, tabId: previous.tabId });
+    if (!enabled) { rewriteSerial += 1; snapshot = null; sourceText = ""; sourceTabId = null; sourceOrigin = null; $("sourceText").textContent = ""; $("sourceWrap").classList.add("hidden"); $("suggestionWrap").classList.add("hidden"); $("rewriteButton").classList.add("hidden"); }
+    setStatus(enabled ? "Revisão ativada neste site." : "Revisão desativada neste site. Sua escolha foi salva.");
+  } catch (error) { setStatus(error.message, true); }
+  finally { await refreshSiteContext(); }
+});
 async function refreshUndoState() {
   const refresh = ++undoRefresh;
   try {
@@ -247,7 +278,7 @@ $("undoButton").addEventListener("click", async () => {
   const button = $("undoButton"); button.disabled = true;
   try {
     await sendToActiveTab({ type: "UNDO_APPLIED_TEXT", undoId });
-    rewriteSerial += 1; snapshot = null; sourceText = ""; sourceTabId = null;
+    rewriteSerial += 1; snapshot = null; sourceText = ""; sourceTabId = null; sourceOrigin = null;
     $("sourceText").textContent = ""; $("suggestion").value = "";
     $("sourceWrap").classList.add("hidden"); $("suggestionWrap").classList.add("hidden"); $("rewriteButton").classList.add("hidden");
     setStatus("Texto anterior restaurado.");
@@ -258,7 +289,7 @@ $("undoButton").addEventListener("click", async () => {
 $("readButton").addEventListener("click", async () => {
   try {
     const response = await sendToActiveTab({ type: "READ_ACTIVE_TEXT" });
-    sourceTabId = response.tabId;
+    sourceTabId = response.tabId; sourceOrigin = response.siteOrigin;
     snapshot = { selectedOnly: response.selectedOnly, start: response.start, end: response.end, originalText: response.text || "" };
     sourceText = response.text || "";
     if (!sourceText.trim()) return setStatus("O campo está vazio. Digite ou selecione um trecho primeiro.", true);
@@ -281,7 +312,7 @@ $("rewriteButton").addEventListener("click", async () => {
   setStatus(`Enviando texto para ${getProvider(provider).name}…`);
   try {
     const response = await chrome.runtime.sendMessage({
-      type: "AI_REWRITE",
+      type: "AI_REWRITE", tabId: sourceTabId, siteOrigin: sourceOrigin,
       instruction: $("instruction").value.trim(),
       text: sourceText
     });
@@ -310,7 +341,7 @@ $("discardButton").addEventListener("click", () => {
 });
 
 $("clearButton").addEventListener("click", () => {
-  snapshot = null; sourceText = ""; sourceTabId = null;
+  snapshot = null; sourceText = ""; sourceTabId = null; sourceOrigin = null;
   $("sourceText").textContent = "";
   $("sourceWrap").classList.add("hidden");
   $("rewriteButton").classList.add("hidden");
@@ -324,4 +355,4 @@ document.querySelectorAll(".chip").forEach((chip) => chip.addEventListener("clic
   $("instruction").value = chip.dataset.instruction;
 }));
 
-loadSettings(true).then(refreshUndoState).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));
+loadSettings(true).then(async () => { await refreshSiteContext(); await refreshUndoState(); }).catch((error) => setSettingsStatus(error.message || "Não consegui carregar a configuração.", true));

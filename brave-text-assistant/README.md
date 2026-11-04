@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.6.6
+# Texto IA — GHS Studio · 0.7.0
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -36,11 +36,22 @@ Não há retenção de rascunhos de chave/modelo ao alternar o seletor. As confi
 
 Marque Lembrar chave neste dispositivo e clique em Salvar. Os perfis lembrados ficam separados por provedor no perfil do Brave. Desmarcar remove a cópia permanente imediatamente e mantém apenas a conexão ativa da sessão. Encerrar Conexão remove ambas as cópias.
 
+## Escolher os sites
+
+Na primeira visita a um endereço de site, o robô pergunta se você quer ativar a revisão. Sim, ativar permite usar a IA; Não mantém a revisão desativada. A escolha é salva no dispositivo, inclusive ao reiniciar o navegador.
+
+Para mudar a decisão, abra o robô e marque ou desmarque Usar IA neste site. A mesma opção existe em Revisar texto. O ícone continua acessível nos sites desativados. O botão global Mostrar robô na página controla a exibição geral.
+
+A decisão vale para todas as páginas do mesmo endereço base (origem: protocolo, domínio e porta), sem salvar caminhos ou parâmetros. Subdomínios, HTTP/HTTPS e portas diferentes têm decisões independentes. Limpar os dados da extensão ou removê-la apaga as escolhas; trocar de provedor ou encerrar a conexão não apaga essa lista.
+
+A extensão aguarda a primeira decisão antes de ler ou enviar revisões. Depois de ativar, digite para iniciar a revisão automática. Desativar cancela revisões pendentes e invalida respostas antigas.
+
 ## Revisar texto
 
 - O robô de 40 × 40 px pode ser arrastado.
 - Com Revisar ao parar de digitar ligado, uma chamada começa 2,5 segundos depois da última entrada, para texto não vazio de até 4.000 caracteres.
 - A sugestão chega depois da resposta do provedor; 2,5 segundos é o início da chamada, não uma garantia de resposta.
+- Apagar ou enviar o texto recolhe o painel, inclusive quando o site limpa o campo sem disparar input.
 - Digitar novamente fecha o painel, descarta a sugestão anterior, cancela a chamada e reinicia os 2,5 segundos.
 - Aplicar ou Descartar recolhe o painel que abriu sozinho. Se o usuário o abriu depois de digitar, ele permanece aberto após a decisão.
 - Aplicar sem confirmação vem desligado. Quando ligado, substitui o texto assim que a IA termina, sem um clique adicional.

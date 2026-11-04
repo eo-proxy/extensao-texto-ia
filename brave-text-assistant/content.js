@@ -2,6 +2,7 @@
   if (window.__braveTextAssistantInstalled) return;
   window.__braveTextAssistantInstalled = true;
   let activeElement = null, lastRange = null, undoRecord = null, undoSerial = 0, applyingText = false;
+  let siteAccess = false;
   const historyListeners = new Set();
   function fieldText(element) { return element.isContentEditable ? element.innerText || element.textContent || "" : element.value; }
   function notifyHistory(action) { for (const listener of historyListeners) { try { listener(action); } catch (_) {} } }
@@ -68,6 +69,7 @@
     lastRange = rangeBelongsTo(activeElement, range) ? range.cloneRange() : null;
   }, true);
   function readText() {
+    if (!siteAccess) throw new Error("Ative Usar IA neste site no robô ou em Revisar texto.");
     if (!isEditable(activeElement) || !activeElement.isConnected) activeElement = editableTarget(document.activeElement);
     if (!activeElement) throw new Error("Clique primeiro no campo de texto que deseja revisar.");
     if (activeElement.isContentEditable) {
@@ -91,6 +93,7 @@
     element.dispatchEvent(new Event("change", { bubbles: true }));
   }
   function applyText(text, snapshot, targetElement = activeElement, selectedRange = lastRange) {
+    if (!siteAccess) throw new Error("A revisão está desativada neste site.");
     if (typeof text !== "string" || !text.trim() || text.length > 32000) throw new Error("A sugestão não contém um texto válido.");
     if (!targetElement?.isConnected || !isEditable(targetElement)) throw new Error("O campo original não está disponível para edição.");
     if (targetElement.isContentEditable && snapshot?.selectedOnly && !rangeBelongsTo(targetElement, selectedRange)) throw new Error("A seleção original mudou. Gere outra sugestão.");
@@ -132,7 +135,7 @@
     } finally { applyingText = false; }
   }
   window.__braveTextAssistantApi = {
-    readText, applyText, undoText, getUndoState, onHistoryChange: (listener) => { historyListeners.add(listener); return () => historyListeners.delete(listener); }, isEditable, getActiveElement: () => activeElement,
+    readText, applyText, undoText, getUndoState, setSiteAccess: enabled => { siteAccess = enabled === true; }, onHistoryChange: (listener) => { historyListeners.add(listener); return () => historyListeners.delete(listener); }, isEditable, getActiveElement: () => activeElement,
     getLastRange: () => lastRange?.cloneRange() || null,
     isAutoEditable: (element) => {
       const target = editableTarget(element);
@@ -141,12 +144,17 @@
   };
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!["READ_ACTIVE_TEXT", "APPLY_TEXT", "GET_UNDO_STATE", "UNDO_APPLIED_TEXT"].includes(message?.type)) return;
-    try {
-      if (message.type === "READ_ACTIVE_TEXT") sendResponse({ ok: true, ...readText() });
-      else if (message.type === "GET_UNDO_STATE") sendResponse({ ok: true, ...getUndoState() });
-      else if (message.type === "UNDO_APPLIED_TEXT") sendResponse({ ok: true, ...undoText(message.undoId) });
-      else { sendResponse({ ok: true, ...applyText(message.text, message.snapshot) }); }
-    } catch (error) { sendResponse({ ok: false, error: error.message }); }
+    if (_sender.id !== chrome.runtime.id || _sender.url?.split(/[?#]/)[0] !== chrome.runtime.getURL("sidepanel.html")) { sendResponse({ ok: false, error: "Origem da solicitação inválida." }); return; }
+    (async () => {
+      if (["READ_ACTIVE_TEXT", "APPLY_TEXT"].includes(message.type)) {
+        const config = await chrome.runtime.sendMessage({ type: "GET_WIDGET_CONFIG" });
+        siteAccess = config?.ok === true && config.siteEnabled === true;
+      }
+      if (message.type === "READ_ACTIVE_TEXT") return { ...readText() };
+      if (message.type === "GET_UNDO_STATE") return getUndoState();
+      if (message.type === "UNDO_APPLIED_TEXT") return undoText(message.undoId);
+      return applyText(message.text, message.snapshot);
+    })().then(result => sendResponse({ ...result, ok: true })).catch(error => sendResponse({ ok: false, error: error.message }));
     return true;
   });
 })();

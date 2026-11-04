@@ -32,6 +32,15 @@
       .bubble { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; background: transparent; box-shadow: 0 6px 18px rgba(0, 0, 0, .3); cursor: grab; user-select: none; }
       .bubble.busy { outline: 2px solid #72baff; outline-offset: 3px; }
       .bubble img { display: block; width: 40px; height: 40px; object-fit: contain; pointer-events: none; }
+      .site-prompt { position: absolute; bottom: 50px; left: 0; width: min(258px, calc(100vw - 16px)); padding: 13px; border: 1px solid #4977ab; border-radius: 13px; background: #142843; color: #eaf3ff; box-shadow: 0 8px 26px #0006; font-size: 12px; line-height: 1.5; }
+      .site-prompt p { margin: 0; }
+      .site-prompt::after { content: ""; position: absolute; bottom: -6px; left: var(--pointer, 20px); width: 10px; height: 10px; background: #142843; border-right: 1px solid #4977ab; border-bottom: 1px solid #4977ab; transform: rotate(45deg); }
+      .site-prompt.below::after { bottom: auto; top: -6px; border: 0; border-left: 1px solid #4977ab; border-top: 1px solid #4977ab; }
+      .site-control { margin-bottom: 12px; padding: 10px; border: 1px solid #345779; border-radius: 9px; background: #13283f; }
+      .site-control label { display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: 700; }
+      .site-control input { accent-color: #4e9df7; }
+      .site-label { display: block; margin: 5px 0 0 22px; color: #9ebbdc; font-size: 10px; overflow-wrap: anywhere; }
+      .bubble.paused { opacity: .75; }
       .panel { width: 100%; max-height: min(500px, calc(100vh - 16px)); overflow-y: auto; border: 1px solid #385477; border-radius: 16px; background: #101e32; box-shadow: 0 12px 38px rgba(0, 0, 0, .4); font-size: 12px; }
       .header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; border-bottom: 1px solid #2a4262; background: #142843; cursor: grab; user-select: none; }
       .header img { display: block; width: 124px; height: 38px; object-fit: contain; pointer-events: none; }
@@ -56,9 +65,11 @@
       [hidden] { display: none !important; }
     </style>
     <button class="bubble" type="button" title="Abrir Texto IA. Arraste para mover." aria-label="Abrir Texto IA"><img src="${iconUrl}" alt="Robô com lupa do Texto IA"></button>
+    <div class="site-prompt" hidden role="group" aria-label="Revisão neste site"><p>Quer usar a revisão de texto neste site?</p><div class="actions"><button class="site-yes primary" type="button">Sim, ativar</button><button class="site-no secondary" type="button">Não</button></div></div>
     <section class="panel" hidden aria-label="Assistente de texto">
       <div class="header"><img src="${logoUrl}" alt="Texto IA, por GHS Studio"><button class="minimize" type="button" title="Recolher" aria-label="Recolher">−</button></div>
       <div class="body">
+        <div class="site-control"><label><input class="site-enabled" type="checkbox"> Usar IA neste site</label><span class="site-label"></span></div>
         <div class="row">
           <label><input class="auto" type="checkbox" checked> Revisar ao parar de digitar</label>
           <select class="instruction" aria-label="Estilo da revisão">
@@ -91,17 +102,69 @@
   const suggestionInput = $(".suggestion");
   const generateButton = $(".generate");
   const undoActions = $(".undo-actions");
+  const sitePrompt = $(".site-prompt"), siteInput = $(".site-enabled"), siteLabel = $(".site-label");
+  const siteYes = $(".site-yes"), siteNo = $(".site-no");
   const autoInput = $(".auto");
   const autoApplyInput = $(".auto-apply");
   const instructionSelect = $(".instruction");
 
   let configured = false, autoEnabled = true, autoApplyEnabled = false, widgetEnabled = true;
+  let siteEnabled = false, siteDecided = false, siteSaving = false;
+  let fieldWatch = null, displayedElement = null;
   let draft = null, timer = null, currentRequest = null, serial = 0, configLoad = 0;
   let lastConfiguration = "", lastRequestedElement = null, lastRequestedText = "";
   let lastInputAt = 0, pendingUserInput = false, blockedUntil = 0;
   let composing = false, applying = false, drag = null, dragged = false;
   let bubblePosition = null, autoOpenedForSuggestion = false;
 
+  function positionSitePrompt() {
+    if (sitePrompt.hidden) return;
+    const x = Number.parseFloat(host.style.left) || 8, y = Number.parseFloat(host.style.top) || 8;
+    const rect = sitePrompt.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x + 40 - rect.width, window.innerWidth - rect.width - 8));
+    const below = y < rect.height + 18;
+    sitePrompt.style.left = (left - x) + "px";
+    sitePrompt.style.top = below ? "50px" : "auto";
+    sitePrompt.style.bottom = below ? "auto" : "50px";
+    sitePrompt.style.setProperty("--pointer", Math.max(10, Math.min(rect.width - 20, x + 15 - left)) + "px");
+    sitePrompt.classList.toggle("below", below);
+  }
+  function updateSiteUi() {
+    siteInput.checked = siteEnabled; siteInput.disabled = siteSaving;
+    siteYes.disabled = siteSaving; siteNo.disabled = siteSaving;
+    sitePrompt.hidden = siteDecided || siteSaving || !widgetEnabled || host.classList.contains("expanded");
+    bubble.classList.toggle("paused", !siteEnabled);
+    generateButton.disabled = !siteEnabled || siteSaving || Boolean(currentRequest);
+    autoInput.disabled = !siteEnabled; autoApplyInput.disabled = !siteEnabled; instructionSelect.disabled = !siteEnabled;
+    $(".apply").disabled = !siteEnabled;
+    positionSitePrompt();
+  }
+  async function saveSiteChoice(enabled) {
+    if (siteSaving) return;
+    const previous = { siteEnabled, siteDecided };
+    ++configLoad; siteSaving = true;
+    if (!enabled) { siteEnabled = false; editor.setSiteAccess(false); clearTimeout(timer); cancelCurrent(); clearSuggestion(); pendingUserInput = false; collapse(); }
+    updateSiteUi();
+    try {
+      const result = await chrome.runtime.sendMessage({ type: "SET_SITE_PREFERENCE", enabled });
+      if (!result?.ok || typeof result.siteEnabled !== "boolean") throw new Error("Não consegui salvar a escolha para este site. Tente novamente.");
+      siteEnabled = result.siteEnabled; siteDecided = result.siteDecided;
+      editor.setSiteAccess(siteEnabled); lastRequestedText = ""; lastRequestedElement = null; pendingUserInput = false;
+      setStatus(siteEnabled ? "Ativado neste site. Digite para receber sugestões." : "Desativado neste site. Marque Usar IA neste site para reativar.");
+    } catch (error) { siteEnabled = previous.siteEnabled; siteDecided = previous.siteDecided; editor.setSiteAccess(siteEnabled); setStatus(error.message, true); }
+    finally { siteSaving = false; updateSiteUi(); requestAnimationFrame(clampPosition); }
+  }
+  function watchReviewedField() {
+    clearTimeout(fieldWatch); fieldWatch = null;
+    const element = currentRequest?.element || draft?.element || displayedElement;
+    if (!siteEnabled || !widgetEnabled || document.visibilityState !== "visible" || !element) return;
+    const text = element.isContentEditable ? element.innerText || element.textContent || "" : element.value || "";
+    if (!element.isConnected || !text.trim()) {
+      clearTimeout(timer); pendingUserInput = false; cancelCurrent(); clearSuggestion(); displayedElement = null; collapse();
+      lastRequestedText = ""; setStatus("Campo vazio. Digite para receber sugestões."); return;
+    }
+    fieldWatch = setTimeout(watchReviewedField, 300);
+  }
   function updateUndoButton() { undoActions.hidden = !editor.getUndoState().canUndo; }
   editor.onHistoryChange((action) => {
     updateUndoButton();
@@ -120,6 +183,7 @@
     const rect = host.getBoundingClientRect();
     host.style.left = Math.min(Math.max(8, Number.parseFloat(host.style.left) || 8), Math.max(8, window.innerWidth - rect.width - 8)) + "px";
     host.style.top = Math.min(Math.max(8, Number.parseFloat(host.style.top) || 8), Math.max(8, window.innerHeight - rect.height - 8)) + "px";
+    positionSitePrompt();
   }
   function expand(forSuggestion = false) {
     if (!host.classList.contains("expanded")) {
@@ -127,12 +191,14 @@
       autoOpenedForSuggestion = forSuggestion;
     }
     bubble.hidden = true; panel.hidden = false; host.classList.add("expanded");
-    updateUndoButton();
+    updateUndoButton(); updateSiteUi(); watchReviewedField();
     requestAnimationFrame(clampPosition);
   }
   function collapse() {
     panel.hidden = true; bubble.hidden = false; host.classList.remove("expanded");
-    autoOpenedForSuggestion = false;
+    autoOpenedForSuggestion = false; displayedElement = null;
+    if (!currentRequest && !draft) { clearTimeout(fieldWatch); fieldWatch = null; }
+    updateSiteUi();
     if (bubblePosition) { host.style.left = bubblePosition.x + "px"; host.style.top = bubblePosition.y + "px"; bubblePosition = null; }
     requestAnimationFrame(clampPosition);
   }
@@ -148,7 +214,7 @@
       clearTimeout(old.timeout);
       chrome.runtime.sendMessage({ type: "CANCEL_REWRITE", requestId: old.id }).catch(() => {});
     }
-    generateButton.disabled = false;
+    generateButton.disabled = !siteEnabled || siteSaving;
     bubble.classList.remove("busy");
   }
   async function savePreferences(preferences) {
@@ -162,28 +228,32 @@
     try {
       const config = await chrome.runtime.sendMessage({ type: "GET_WIDGET_CONFIG" });
       if (!config?.ok || load !== configLoad) return;
-      const signature = [config.provider, config.model, config.revision, config.configured, config.widgetInstruction].join("|");
+      const signature = [config.provider, config.model, config.revision, config.configured, config.widgetInstruction, config.siteEnabled, config.siteDecided, config.siteRevision].join("|");
       if (lastConfiguration && signature !== lastConfiguration) {
         clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse();
         lastRequestedText = ""; blockedUntil = 0;
       }
       lastConfiguration = signature;
       configured = config.configured;
+      siteEnabled = config.siteEnabled === true; siteDecided = config.siteDecided === true;
+      editor.setSiteAccess(siteEnabled); siteLabel.textContent = config.siteLabel || "Este site";
       autoEnabled = config.autoEnabled !== false;
       autoApplyEnabled = config.autoApplyEnabled === true;
       widgetEnabled = config.widgetEnabled !== false;
       autoInput.checked = autoEnabled; autoApplyInput.checked = autoApplyEnabled;
       instructionSelect.value = config.widgetInstruction || "professional";
       host.style.display = widgetEnabled ? "block" : "none";
-      if (!widgetEnabled || !autoEnabled || !configured) {
+      if (!widgetEnabled || !autoEnabled || !configured || !siteEnabled) {
         clearTimeout(timer); cancelCurrent();
-        if (!widgetEnabled || !configured) { clearSuggestion(); collapse(); }
+        if (!widgetEnabled || !configured || !siteEnabled) { clearSuggestion(); collapse(); pendingUserInput = false; }
       }
       if (config.widgetPosition && !host.classList.contains("expanded")) {
         host.style.left = config.widgetPosition.x + "px"; host.style.top = config.widgetPosition.y + "px";
       }
       requestAnimationFrame(clampPosition);
-      if (!configured) setStatus("Abra o ícone da extensão e abra Configuração para começar.");
+      updateSiteUi();
+      if (!siteEnabled) setStatus(siteDecided ? "Revisão desativada neste site. Use a checkbox para reativar." : "Escolha se deseja usar a revisão neste site.");
+      else if (!configured) setStatus("Abra o ícone da extensão e abra Configuração para começar.");
       else if (pendingUserInput) scheduleAutomaticSuggestion();
     } catch (_) { setStatus("A extensão foi atualizada. Recarregue esta página para continuar.", true); }
   }
@@ -201,7 +271,7 @@
   }
   function scheduleAutomaticSuggestion() {
     clearTimeout(timer);
-    if (!pendingUserInput || !widgetEnabled || !autoEnabled || !configured || composing || currentRequest || document.visibilityState !== "visible") return;
+    if (!pendingUserInput || !siteEnabled || !widgetEnabled || !autoEnabled || !configured || composing || currentRequest || document.visibilityState !== "visible") return;
     let current;
     try { current = captureDraft(); } catch (_) { return; }
     if (!editor.isAutoEditable(current.element) || current.text.trim().length < MIN_AUTO_LENGTH || current.text.length > MAX_LENGTH) return;
@@ -211,7 +281,7 @@
   }
   function resumeAutomaticSuggestion() {
     if (document.visibilityState !== "visible") return;
-    composing = false;
+    composing = false; watchReviewedField();
     if (pendingUserInput) { lastInputAt = Date.now(); scheduleAutomaticSuggestion(); }
   }
   function rememberAppliedText(element) {
@@ -221,7 +291,7 @@
   }
   async function generateSuggestion(manual) {
     clearTimeout(timer);
-    if (currentRequest || !widgetEnabled) return;
+    if (currentRequest || !widgetEnabled || !siteEnabled || siteSaving) return;
     if (!manual && (!autoEnabled || !configured || composing || document.visibilityState !== "visible")) return;
     let current;
     try { current = captureDraft(); }
@@ -232,7 +302,7 @@
     if (!configured) { expand(); setStatus("Abra Configuração pelo ícone da extensão.", true); return; }
     if (!manual && current.element === lastRequestedElement && current.text === lastRequestedText) return;
     const request = { id: Date.now() + "-" + (++serial), element: current.element, manual, timeout: null };
-    currentRequest = request;
+    currentRequest = request; displayedElement = current.element; watchReviewedField();
     clearSuggestion(); generateButton.disabled = true; bubble.classList.add("busy");
     setStatus("Revisando o texto… Você pode continuar digitando para cancelar.");
     try {
@@ -269,21 +339,27 @@
     } finally {
       clearTimeout(request.timeout);
       if (currentRequest === request) {
-        currentRequest = null; generateButton.disabled = false; bubble.classList.remove("busy");
+        currentRequest = null; generateButton.disabled = !siteEnabled || siteSaving; bubble.classList.remove("busy");
+        if (!host.classList.contains("expanded") && !draft) { displayedElement = null; clearTimeout(fieldWatch); fieldWatch = null; }
         if (pendingUserInput && !draftIsCurrent(current)) scheduleAutomaticSuggestion();
       }
     }
   }
   function onInput(event) {
-    if (!widgetEnabled || applying || !event.isTrusted || !editor.isAutoEditable(event.target)) return;
-    lastInputAt = Date.now(); pendingUserInput = true;
+    if (!widgetEnabled || applying) return;
+    const editable = editor.isEditable ? editor.isEditable(event.target) : editor.isAutoEditable(event.target);
+    if (!editable) return;
+    if (!event.isTrusted) { if (event.target === (currentRequest?.element || draft?.element || displayedElement)) watchReviewedField(); return; }
+    clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse();
+    if (!siteEnabled) { pendingUserInput = false; return; }
+    lastInputAt = Date.now(); pendingUserInput = editor.isAutoEditable(event.target);
     clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse();
     setStatus("Aguardando 2,5 segundos sem digitar…");
     scheduleAutomaticSuggestion();
   }
   document.addEventListener("input", onInput, true);
   document.addEventListener("compositionstart", (event) => {
-    if (editor.isAutoEditable(event.target)) { composing = true; clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse(); }
+    if (siteEnabled && editor.isAutoEditable(event.target)) { composing = true; clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse(); }
   }, true);
   document.addEventListener("compositionend", (event) => {
     if (event.isTrusted && editor.isAutoEditable(event.target)) { composing = false; onInput(event); }
@@ -295,14 +371,15 @@
     }
   }, true);
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "hidden") { clearTimeout(timer); cancelCurrent(); }
+    if (document.visibilityState === "hidden") { clearTimeout(timer); clearTimeout(fieldWatch); cancelCurrent(); }
     else resumeAutomaticSuggestion();
   }, true);
+  for (const name of ["reset", "submit", "change"]) document.addEventListener(name, () => { if (currentRequest || draft || displayedElement) setTimeout(watchReviewedField, 0); }, true);
   window.addEventListener("focus", resumeAutomaticSuggestion);
   window.addEventListener("pageshow", () => loadConfig().then(resumeAutomaticSuggestion));
   window.addEventListener("resize", clampPosition);
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-    if (message?.type !== "WIDGET_CONFIG_CHANGED") return;
+    if (message?.type !== "WIDGET_CONFIG_CHANGED" || _sender.id !== chrome.runtime.id) return;
     loadConfig().then(() => sendResponse({ ok: true })); return true;
   });
   function beginDrag(event) {
@@ -348,6 +425,9 @@
     cancelCurrent(); clearSuggestion(); lastRequestedText = ""; lastInputAt = Date.now();
     savePreferences({ widgetInstruction: instructionSelect.value }); scheduleAutomaticSuggestion();
   });
+  siteYes.addEventListener("click", event => { if (event.isTrusted) return saveSiteChoice(true); });
+  siteNo.addEventListener("click", event => { if (event.isTrusted) return saveSiteChoice(false); });
+  siteInput.addEventListener("change", event => { if (event.isTrusted) return saveSiteChoice(siteInput.checked); });
   $(".undo").addEventListener("click", () => {
     applying = true;
     try { editor.undoText(editor.getUndoState().undoId); }
@@ -357,7 +437,7 @@
   generateButton.addEventListener("click", () => generateSuggestion(true));
   $(".discard").addEventListener("click", () => finishSuggestion("Sugestão descartada."));
   $(".apply").addEventListener("click", () => {
-    if (!draft) return;
+    if (!draft || !siteEnabled) return;
     try {
       applying = true; editor.applyText(suggestionInput.value, draft.snapshot, draft.element, draft.range);
       rememberAppliedText(draft.element); finishSuggestion("Sugestão aplicada.");

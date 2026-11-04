@@ -12,9 +12,15 @@ As configurações antigas que eram salvas automaticamente são removidas do arm
 
 O acesso ao armazenamento local e de sessão é restrito às páginas da extensão e ao service worker. Chaves lembradas não recebem criptografia adicional da aplicação. Quem tem acesso ao dispositivo/perfil pode acessar os dados locais.
 
+## Escolhas por site
+
+A extensão pergunta antes de ativar a revisão em cada origem de site. A escolha fica no armazenamento local da extensão, restrito a TRUSTED_CONTEXTS, até ser alterada ou até limpar/remover a extensão. São guardados apenas protocolo, domínio/porta, ativado/desativado e um identificador de revisão; caminhos, parâmetros, títulos de páginas e textos não fazem parte desse registro. A lista não é sincronizada ou enviada a servidores.
+
+Sites sem decisão ou desativados não permitem leitura para revisão, aplicação de novas sugestões ou geração na API. Desfazer uma alteração anterior continua sendo uma ação local e explícita. O robô continua acessível para mudar a escolha. O cancelamento não reverte processamento que o provedor já tenha iniciado.
+
 ## Texto enviado
 
-Com revisão automática ligada, após 2,5 segundos sem digitar o campo ativo ou trecho selecionado e a instrução são enviados ao provedor ativo. O prazo é o início da chamada, não uma garantia do tempo de resposta. Retomar a digitação cancela a chamada e descarta a sugestão anterior.
+Em um site autorizado e com revisão automática ligada, após 2,5 segundos sem digitar o campo ativo ou trecho selecionado e a instrução são enviados ao provedor ativo. O prazo é o início da chamada, não uma garantia do tempo de resposta. Retomar a digitação cancela a chamada e descarta a sugestão anterior.
 
 A geração automática vem ligada depois da configuração. Aplicar sem confirmação vem desligado. Você pode pausar as revisões ou ocultar o robô. Campos de senha, códigos de acesso e cartão identificados por autocomplete são excluídos, assim como elementos marcados data-texto-ia-ignore. Informações sensíveis em campos comuns não são reconhecidas de forma infalível.
 

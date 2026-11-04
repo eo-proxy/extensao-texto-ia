@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mockChrome } from "./mock-chrome.mjs";
 const env = mockChrome({
+  "sitePreference:https://example.com": { enabled: true, revision: "site-test" },
   storageSchema: 2, provider: "openai",
   providerProfiles: { openai: { provider: "openai", apiKey: "test-openai-secret", model: "gpt-test", rememberCredentials: true, revision: "initial-revision" } }
 });
@@ -84,5 +85,3 @@ test("429 respeita a pausa informada sem repetir a chamada em sequência", async
     assert.equal(second.code, "RATE_LIMIT"); assert.equal(calls, 1);
   } finally { globalThis.fetch = old; }
 });
-
-

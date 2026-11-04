@@ -27,6 +27,7 @@
           <span>Use uma chave pessoal da OpenAI, Google ou Anthropic.</span>
           <button id="setupButton" class="primary">Configurar minha IA</button>
         </section>
+        <section class="preferences site-preference" aria-label="Revisão neste site"><label class="toggle-row" for="siteEnabled"><span><strong>Usar IA neste site</strong><small id="siteLabel">Carregando preferência…</small></span><input id="siteEnabled" type="checkbox" disabled></label></section>
         <section class="preferences" aria-label="Preferências de revisão">
           <label class="toggle-row" for="widgetEnabled"><span><strong>Mostrar robô na página</strong><small>Acesse o assistente enquanto escreve.</small></span><input id="widgetEnabled" type="checkbox" checked></label>
           <label class="toggle-row" for="autoEnabled"><span><strong>Revisar ao parar de digitar</strong><small>Receba sugestões ao terminar de digitar.</small></span><input id="autoEnabled" type="checkbox" checked></label>
@@ -99,7 +100,7 @@
         <p class="privacy-note">A chave é enviada só ao provedor escolhido. Sem a opção de lembrar, ela fica na memória da sessão até trocar de IA ou encerrar o navegador. Cada provedor tem suas próprias cotas e cobranças.</p>
       </section>
     </div>
-    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.6.6</span></footer>
+    <footer><span id="providerLabel">Nenhum provedor</span><span>GHS Studio · v0.7.0</span></footer>
   </main>
   <script type="module" src="sidepanel.js"></script>
 </body>

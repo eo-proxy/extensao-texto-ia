@@ -1,46 +1,51 @@
-# Revisão de segurança — Texto IA 0.6.2
+# Revisão de segurança — Texto IA 0.7.0
 
-Revisão do código e testes locais em 26/10/2026. Este documento descreve as proteções verificadas e seus limites; não representa uma garantia de ausência de vulnerabilidades nem uma auditoria externa.
+Revisão do código e testes automatizados locais em 04/11/2026, orientados pela skill secure-code-guardian v1.1.0. A skill fornece um roteiro de análise e implementação; não é um scanner automático. Este documento registra os controles verificados e seus limites.
 
-## Credenciais e privacidade
+## Superfícies verificadas
 
-- Lembrar chave neste dispositivo começa desligado. A conexão temporária usa chrome.storage.session, em memória, restrito a TRUSTED_CONTEXTS.
-- Trocar de provedor descarta a conexão temporária anterior. Encerrar o Brave encerra a sessão. Reabrir apenas o popup ou reiniciar o service worker preserva a conexão da sessão.
-- A persistência em chrome.storage.local exige rememberCredentials=true. Desmarcar a opção remove a cópia local imediatamente e preserva só a sessão ativa.
-- A atualização move a conexão ativa antiga sem consentimento para memória e remove as credenciais antigas do disco. Perfis explicitamente lembrados são preservados.
-- Não há chave da GHS Studio, backend intermediário, analytics ou dependência npm de execução.
-- Diagnósticos guardam apenas provedor, modelo, horário, duração, código sanitizado, status HTTP e identificador aleatório da configuração, na sessão. Não guardam chave, texto, resposta, URL visitada ou corpo bruto de erro.
+- Mensagens entre a página, scripts isolados, popup e serviço da extensão.
+- Leitura e substituição de campos, sugestões retornadas pela IA e restauração por Desfazer.
+- Chaves pessoais, persistência opcional, escolhas por site, diagnósticos e pacotes de distribuição.
+- Endereços de destino, cabeçalhos, redirecionamentos e política de scripts/conexões do manifesto.
 
-## Fronteiras de confiança
+## Controles por site
 
-- Consultar/alterar/apagar credenciais, trocar provedor e testar modelos exigem mensagem originada da página sidepanel.html da própria extensão.
-- Scripts dos sites recebem só o estado e as preferências públicas. Não recebem perfis com chaves.
-- O widget opera em Shadow DOM fechado; conteúdo da página não é usado como instrução privilegiada.
-- Chamadas só vão aos três hosts fixos dos provedores, com HTTPS, sem cookies e sem seguir redirecionamentos.
-- A CSP permite scripts locais e conexão apenas às APIs declaradas. Recursos públicos se limitam à marca e ao ícone.
+- Sites novos ficam sem autorização até uma escolha explícita. Sim e Não são gravados separadamente em chrome.storage.local e sobrevivem a reinícios; limpar os dados ou remover a extensão apaga a lista.
+- A identidade do site é derivada dos metadados do navegador. Um script não escolhe a origem por parâmetro de mensagem e não consegue alterar decisões de outro site.
+- A chave inclui somente a origem HTTP/HTTPS (protocolo, domínio e porta). Não guarda caminhos, parâmetros, títulos ou textos. Credenciais embutidas na URL e outros protocolos são recusados.
+- O serviço exige autorização antes de chamar a API e verifica novamente a revisão da escolha antes do envio e após a resposta. Desativar cancela os trabalhos daquele site. Reativar não valida uma resposta antiga.
+- A geração manual fica vinculada à aba e à origem onde o texto foi lido. Ler/aplicar pelo popup reconfirma a autorização atual, inclusive no script da página.
+- Eventos artificiais não acionam Sim/Não ou a checkbox do robô. As decisões são mantidas quando a conexão com um provedor é encerrada.
 
-## Leitura e aplicação
+## Mensagens e dados privados
 
-- Senhas, campos com autocomplete de código de acesso, senha ou cartão, campos desabilitados/somente leitura e elementos marcados com data-texto-ia-ignore são excluídos.
-- Seleções de contenteditable precisam estar contidas no editor de origem.
-- Texto alterado, seleção inválida, resposta incompleta, recusa ou troca de conexão impede aplicação.
-- Retomar a digitação cancela a chamada e invalida respostas antigas, inclusive quando o servidor não respeita o cancelamento.
-- Sugestões são inseridas como texto. Não há execução de HTML, scripts ou comandos retornados pela IA.
-- A aplicação sem confirmação exige opção explícita e começa desligada.
+- Mensagens de outras extensões são recusadas. Operações de chave, provedor, diagnóstico e conexão exigem o popup da própria extensão.
+- Leitura, aplicação e Desfazer via mensagem no script da página também exigem o popup da própria extensão. Scripts de frames e origens inconsistentes são recusados pelo serviço.
+- A configuração pública revela apenas os dados necessários ao robô e a escolha do site atual; não revela chaves nem a lista dos demais sites.
+- O armazenamento local e o da sessão são restritos a TRUSTED_CONTEXTS. Chaves são temporárias por padrão; a cópia permanente exige Lembrar chave neste dispositivo.
+- Chaves lembradas ficam no perfil sem criptografia adicional da aplicação. Quem controla o dispositivo/perfil pode acessar esses dados; a sessão temporária evita a cópia permanente.
+- Diagnósticos guardam apenas provedor, modelo, revisão, horário, duração e códigos sanitizados. Não contêm textos, chaves, URLs ou respostas brutas.
 
-## Proteção operacional
+## Conteúdo e execução
 
-- Até 4.000 caracteres por texto e 1.500 na instrução.
-- Uma chamada por contexto; nova revisão cancela a anterior.
-- Espera limitada a 25 segundos na chamada à API e 30 segundos no widget, evitando bloqueio indefinido.
-- Respeita a pausa informada por rate limits e sobrecarga. Não há repetição silenciosa de geração nem troca automática de modelo.
-- Testes usam credenciais fictícias e respostas simuladas. Há testes específicos de cancelamento, sessão, persistência, fronteiras de mensagem, seleções e marcação maliciosa.
+- Sugestões são inseridas como texto; não há execução de HTML retornado pela IA. O HTML do robô é um template fixo com recursos da própria extensão; rótulos de sites usam textContent.
+- Campos de senha, código de acesso, cartão, somente leitura e data-texto-ia-ignore são excluídos. Conteúdo sensível em campos comuns não é reconhecido de forma infalível.
+- A aplicação automática exige uma escolha explícita, desligada por padrão. Texto/seleção alterados e campos removidos ou bloqueados impedem aplicação.
+- Desfazer mantém somente a última alteração em memória e valida campo, texto e formatação. Edições posteriores invalidam a restauração. Não grava o original em disco nem o reenvia à API.
+- Apagar/enviar o conteúdo cancela a revisão e recolhe o painel. A observação de limpeza programática fica limitada ao campo em revisão ou exibido e para quando não é necessária ou a página fica oculta.
 
-## Limites
+## Rede e manifesto
 
-O processamento pelo provedor e a retenção na conta dele seguem suas próprias condições. Uma chave explicitamente lembrada fica no perfil do Brave sem criptografia adicional da aplicação; alguém com acesso ao perfil/dispositivo pode acessá-la. Uma chave temporária continua existindo na memória enquanto a sessão está ativa. Dados sensíveis escritos em campos comuns não podem ser identificados de forma infalível: o usuário deve pausar a revisão nesses casos. Cancelar a requisição não garante que o provedor deixe de contabilizar processamento já iniciado.
+- Há um único ponto de fetch da aplicação, restrito aos três provedores fixos. Chaves seguem em cabeçalhos, nunca em parâmetros de URL. Os pedidos omitem cookies e recusam redirecionamentos.
+- A CSP permite scripts locais, bloqueia objetos e restringe conexões aos hosts oficiais configurados. Não permite eval ou scripts remotos.
+- Não há externally_connectable, código exposto em web_accessible_resources, execução no mundo MAIN, armazenamento sincronizado, analytics ou backend da GHS Studio.
+- As permissões continuam limitadas a activeTab, scripting e storage, com hosts opcionais para as APIs. Os scripts de conteúdo continuam declarados apenas para páginas HTTP/HTTPS.
 
-Antes de distribuir publicamente por loja, revise as exigências de publicação e os termos dos provedores. Uma credencial compartilhada da empresa exigiria outro desenho, com proteção no servidor.
+## Validação e limites
 
+Testes cobrem autorização por site, persistência/reinício, isolamento de origens/abas, corrida ao desativar/reativar, bloqueio antes da rede, mensagens forjadas, entrada HTML, privacidade do diagnóstico, armazenamento, cancelamento, Desfazer e política do manifesto. A conferência de empacotamento compara os arquivos do ZIP com os fontes. O projeto não possui dependências npm de execução.
 
+Não foi realizado teste ponta a ponta com uma conta real de cada provedor ou em todos os navegadores. Editores complexos podem precisar de adaptação. As proteções observadas e os testes locais não constituem garantia de ausência total de vulnerabilidades nem auditoria externa.
 
+As APIs recebem os textos cuja revisão foi autorizada e seguem as próprias políticas de retenção/cobrança. Cancelar uma chamada não garante estorno de processamento já iniciado. Assinatura do aplicativo de conversa e uso da API são serviços distintos.

@@ -101,3 +101,6 @@ button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px soli
 .disconnect-button svg { display: block; width: 24px; height: 24px; flex-shrink: 0; }
 .disconnect-button:hover { color: #ffd0d5; }
 .disconnect-button:active { color: #e78599; }
+
+.site-preference { margin-bottom: 12px; }
+.site-preference small { overflow-wrap: anywhere; }

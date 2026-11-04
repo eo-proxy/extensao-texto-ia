@@ -17,7 +17,7 @@ class Element {
 }
 const html = await readFile(new URL("../brave-text-assistant/sidepanel.html", import.meta.url), "utf8");
 const elements = Object.fromEntries([...html.matchAll(/id="([^"]+)"/g)].map((match) => [match[1], new Element(match[1])]));
-const env = mockChrome();
+const env = mockChrome({ "sitePreference:https://example.com": { enabled: true, revision: "site-test" } });
 globalThis.chrome = env.chrome;
 await import("../brave-text-assistant/service-worker.js");
 const sent = [];
@@ -134,7 +134,7 @@ test("Popup aplica e desfaz usando o script do campo e recupera Desfazer ao volt
   const content = contentHarness();
   const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
   env.chrome.scripting = { executeScript: async () => {} };
-  env.chrome.tabs.query = async () => [{ id: 7 }];
+  env.chrome.tabs.query = async () => [{ id: 7, url: "https://example.com/page" }];
   env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
   try {
     await elements.readButton.fire("click"); elements.suggestion.value = "Revisado";
@@ -157,7 +157,7 @@ test("Popup permite desfazer aplicação feita pelo robô, inclusive após reabr
   content.api.applyText("Automático", { selectedOnly: false, originalText: "Original" });
   const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
   env.chrome.scripting = { executeScript: async () => {} };
-  env.chrome.tabs.query = async () => [{ id: 8 }];
+  env.chrome.tabs.query = async () => [{ id: 8, url: "https://example.com/page" }];
   env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
   try {
     elements.reviewTab.fire("click"); await flush();
@@ -170,7 +170,7 @@ test("Popup preserva edições posteriores e recusa Desfazer em uma outra aba", 
   const first = contentHarness(), other = contentHarness(); let tabId = 9;
   const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
   env.chrome.scripting = { executeScript: async () => {} };
-  env.chrome.tabs.query = async () => [{ id: tabId }];
+  env.chrome.tabs.query = async () => [{ id: tabId, url: "https://example.com/page" }];
   env.chrome.tabs.sendMessage = async (id, message) => (id === 9 ? first : other).message(message);
   try {
     first.api.applyText("Revisado", { selectedOnly: false, originalText: "Original" });
@@ -191,7 +191,7 @@ test("Desfazer no popup invalida uma geração manual que termina depois", async
   content.api.applyText("Aplicado", { selectedOnly: false, originalText: "Original" });
   const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage, originalFetch = globalThis.fetch;
   env.chrome.scripting = { executeScript: async () => {} };
-  env.chrome.tabs.query = async () => [{ id: 11 }];
+  env.chrome.tabs.query = async () => [{ id: 11, url: "https://example.com/page" }];
   env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
   let resolveGeneration;
   try {
@@ -208,4 +208,42 @@ test("Desfazer no popup invalida uma geração manual que termina depois", async
     assert.equal(elements.suggestionWrap.classList.contains("hidden"), true);
     assert.equal(content.field.value, "Original");
   } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; globalThis.fetch = originalFetch; delete env.chrome.scripting; }
+});
+
+test("Checkbox do popup salva Sim/Não e bloqueia leitura e aplicação em site desativado", async () => {
+  const content = contentHarness();
+  const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
+  env.chrome.scripting = { executeScript: async () => {} };
+  env.chrome.tabs.query = async () => [{ id: 12, url: "https://popup-site.example/chat" }];
+  let reads = 0;
+  env.chrome.tabs.sendMessage = async (_tab, message) => { if (message.type === "READ_ACTIVE_TEXT") reads++; return content.message(message); };
+  try {
+    elements.reviewTab.fire("click"); await flush();
+    assert.equal(elements.siteEnabled.checked, false); assert.equal(elements.siteEnabled.disabled, false);
+    await elements.readButton.fire("click"); assert.equal(reads, 0); assert.match(elements.status.textContent, /Ative/);
+    elements.siteEnabled.checked = true; await elements.siteEnabled.fire("change");
+    assert.equal(env.state["sitePreference:https://popup-site.example"].enabled, true);
+    await elements.readButton.fire("click"); assert.equal(reads, 1);
+    elements.suggestion.value = "Revisado"; await elements.applyButton.fire("click");
+    assert.equal(content.field.value, "Revisado");
+    elements.siteEnabled.checked = false; await elements.siteEnabled.fire("change");
+    assert.equal(env.state["sitePreference:https://popup-site.example"].enabled, false);
+    assert.equal(elements.siteEnabled.checked, false); assert.equal(elements.suggestionWrap.classList.contains("hidden"), true);
+    await elements.applyButton.fire("click"); assert.equal(content.field.value, "Revisado");
+  } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; delete env.chrome.scripting; }
+});
+
+test("Popup recusa aplicação depois de navegar para outro site na mesma aba", async () => {
+  const content = contentHarness(); let url = "https://origin-a.example/";
+  env.state["sitePreference:https://origin-a.example"] = { enabled: true, revision: "origin-a" };
+  env.state["sitePreference:https://origin-b.example"] = { enabled: true, revision: "origin-b" };
+  const originalQuery = env.chrome.tabs.query, originalMessage = env.chrome.tabs.sendMessage;
+  env.chrome.scripting = { executeScript: async () => {} };
+  env.chrome.tabs.query = async () => [{ id: 14, url }];
+  env.chrome.tabs.sendMessage = async (_tab, message) => content.message(message);
+  try {
+    await elements.readButton.fire("click"); url = "https://origin-b.example/";
+    elements.suggestion.value = "Novo"; await elements.applyButton.fire("click");
+    assert.equal(content.field.value, "Original"); assert.match(elements.status.textContent, /página mudou/);
+  } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; delete env.chrome.scripting; }
 });

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import vm from "node:vm";
 const source = fs.readFileSync(new URL("../brave-text-assistant/content.js", import.meta.url), "utf8");
-export function contentHarness({ type = "textarea", autocomplete = "", editable = false } = {}) {
+export function contentHarness({ type = "textarea", autocomplete = "", editable = false, allowSite = true } = {}) {
   const listeners = {}, inputs = [], insertedNodes = [];
   let doc, selectionRange, runtimeListener;
   class TextNode { constructor(text, tag = "") { this.text = text; this.tag = tag; this.nodeType = 3; } get textContent() { return this.text; } cloneNode() { return new TextNode(this.text, this.tag); } }
@@ -41,6 +41,7 @@ export function contentHarness({ type = "textarea", autocomplete = "", editable 
     createRange: () => range, createTextNode: (text) => new TextNode(text), execCommand: () => false
   };
   const window = { getSelection: () => selection };
-  vm.runInNewContext(source, { window, document: doc, chrome: { runtime: { onMessage: { addListener(fn) { runtimeListener = fn; } } } }, HTMLElement, HTMLTextAreaElement, HTMLInputElement, InputEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, Event: class {} });
-  return { api: window.__braveTextAssistantApi, field, selection, range, insertedNodes, inputs, document: doc, HTMLElement, TextNode, message(message) { let result; runtimeListener(message, {}, value => { result = value; }); return result; }, setRange(value) { selectionRange = value; }, listeners };
+  vm.runInNewContext(source, { window, document: doc, chrome: { runtime: { id: "test-extension", getURL: path => "chrome-extension://test-extension/" + path, sendMessage: async () => ({ ok: true, siteEnabled: allowSite }), onMessage: { addListener(fn) { runtimeListener = fn; } } } }, HTMLElement, HTMLTextAreaElement, HTMLInputElement, InputEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }, Event: class {} });
+  window.__braveTextAssistantApi.setSiteAccess(allowSite);
+  return { api: window.__braveTextAssistantApi, field, selection, range, insertedNodes, inputs, document: doc, HTMLElement, TextNode, message(message, sender = { id: "test-extension", url: "chrome-extension://test-extension/sidepanel.html" }) { return new Promise(resolve => runtimeListener(message, sender, resolve)); }, setRange(value) { selectionRange = value; }, listeners };
 }
