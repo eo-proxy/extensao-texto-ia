@@ -114,7 +114,7 @@
   let draft = null, timer = null, currentRequest = null, serial = 0, configLoad = 0;
   let lastConfiguration = "", lastRequestedElement = null, lastRequestedText = "";
   let lastInputAt = 0, pendingUserInput = false, blockedUntil = 0;
-  let composing = false, applying = false, drag = null, dragged = false;
+  let composing = false, composingElement = null, applying = false, drag = null, dragged = false;
   let bubblePosition = null, autoOpenedForSuggestion = false;
 
   function positionSitePrompt() {
@@ -143,7 +143,7 @@
     if (siteSaving) return;
     const previous = { siteEnabled, siteDecided };
     ++configLoad; siteSaving = true;
-    if (!enabled) { siteEnabled = false; editor.setSiteAccess(false); clearTimeout(timer); cancelCurrent(); clearSuggestion(); pendingUserInput = false; collapse(); }
+    if (!enabled) { resetComposition(); siteEnabled = false; editor.setSiteAccess(false); clearTimeout(timer); cancelCurrent(); clearSuggestion(); pendingUserInput = false; collapse(); }
     updateSiteUi();
     try {
       const result = await chrome.runtime.sendMessage({ type: "SET_SITE_PREFERENCE", enabled });
@@ -245,7 +245,7 @@
       host.style.display = widgetEnabled ? "block" : "none";
       if (!widgetEnabled || !autoEnabled || !configured || !siteEnabled) {
         clearTimeout(timer); cancelCurrent();
-        if (!widgetEnabled || !configured || !siteEnabled) { clearSuggestion(); collapse(); pendingUserInput = false; }
+        if (!widgetEnabled || !configured || !siteEnabled) { resetComposition(); clearSuggestion(); collapse(); pendingUserInput = false; }
       }
       if (config.widgetPosition && !host.classList.contains("expanded")) {
         host.style.left = config.widgetPosition.x + "px"; host.style.top = config.widgetPosition.y + "px";
@@ -279,9 +279,10 @@
     const delay = Math.max(0, IDLE_MS - (Date.now() - lastInputAt), blockedUntil - Date.now());
     timer = setTimeout(() => generateSuggestion(false), delay);
   }
+  function resetComposition() { composing = false; composingElement = null; }
   function resumeAutomaticSuggestion() {
     if (document.visibilityState !== "visible") return;
-    composing = false; watchReviewedField();
+    resetComposition(); watchReviewedField();
     if (pendingUserInput) { lastInputAt = Date.now(); scheduleAutomaticSuggestion(); }
   }
   function rememberAppliedText(element) {
@@ -352,6 +353,9 @@
     if (!event.isTrusted) { if (event.target === (currentRequest?.element || draft?.element || displayedElement)) watchReviewedField(); return; }
     clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse();
     if (!siteEnabled) { pendingUserInput = false; return; }
+    // A entrada confirmada encerra uma composição antiga mesmo se compositionend não chegar.
+    if (event.isComposing === false) resetComposition();
+    else if (event.isComposing === true) { composing = true; composingElement = editor.getActiveElement(); }
     lastInputAt = Date.now(); pendingUserInput = editor.isAutoEditable(event.target);
     clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse();
     setStatus("Aguardando 2,5 segundos sem digitar…");
@@ -359,12 +363,23 @@
   }
   document.addEventListener("input", onInput, true);
   document.addEventListener("compositionstart", (event) => {
-    if (siteEnabled && editor.isAutoEditable(event.target)) { composing = true; clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse(); }
+    if (event.isTrusted && widgetEnabled && siteEnabled && editor.isAutoEditable(event.target)) { composing = true; composingElement = editor.getActiveElement(); clearTimeout(timer); cancelCurrent(); clearSuggestion(); collapse(); }
   }, true);
   document.addEventListener("compositionend", (event) => {
-    if (event.isTrusted && editor.isAutoEditable(event.target)) { composing = false; onInput(event); }
+    if (!event.isTrusted) return;
+    if (editor.isAutoEditable(event.target)) { resetComposition(); onInput(event); }
+    else if (composing && composingElement === editor.getActiveElement()) {
+      resetComposition();
+      if (pendingUserInput) { lastInputAt = Date.now(); scheduleAutomaticSuggestion(); }
+    }
+  }, true);
+  document.addEventListener("keydown", event => {
+    if (!event.isTrusted || !composing || event.isComposing !== false || event.keyCode === 229 || ["Process", "Shift", "Control", "Alt", "Meta"].includes(event.key) || composingElement !== editor.getActiveElement()) return;
+    resetComposition();
+    if (pendingUserInput) { lastInputAt = Date.now(); scheduleAutomaticSuggestion(); }
   }, true);
   document.addEventListener("focusin", () => {
+    if (composing && composingElement !== editor.getActiveElement()) resetComposition();
     if (currentRequest || draft) {
       const target = currentRequest?.element || draft?.element;
       if (target && editor.getActiveElement() !== target) { cancelCurrent(); clearSuggestion(); collapse(); }
@@ -375,6 +390,7 @@
     else resumeAutomaticSuggestion();
   }, true);
   for (const name of ["reset", "submit", "change"]) document.addEventListener(name, () => { if (currentRequest || draft || displayedElement) setTimeout(watchReviewedField, 0); }, true);
+  window.addEventListener("blur", () => { clearTimeout(timer); cancelCurrent(); });
   window.addEventListener("focus", resumeAutomaticSuggestion);
   window.addEventListener("pageshow", () => loadConfig().then(resumeAutomaticSuggestion));
   window.addEventListener("resize", clampPosition);

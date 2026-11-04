@@ -71,7 +71,7 @@ async function harness({ pending = false, siteEnabled = true, siteDecided = true
   await flush();
   return {
     controls, field, requests, cancelled, config, host, siteDecisions, get reads() { return reads; }, get applied() { return applied; },
-    input(text, isTrusted = true) { if (isTrusted) { undo = null; notifyHistory("invalidated"); } field.value = text; docListeners.input({ target: field, isTrusted }); },
+    input(text, isTrusted = true, options = {}) { if (isTrusted) { undo = null; notifyHistory("invalidated"); } field.value = text; docListeners.input({ target: field, isTrusted, ...options }); },
     async advance(ms) {
       const target = now + ms;
       while (true) {
@@ -81,8 +81,10 @@ async function harness({ pending = false, siteEnabled = true, siteDecided = true
       }
       now = target; await flush();
     },
+    windowEvent(name) { winListeners[name]?.(); },
     visibility(value) { document.visibilityState = value; docListeners.visibilitychange(); },
-    composition(type) { docListeners[type]({ target: field, isTrusted: true }); },
+    composition(type, options = {}) { docListeners[type]({ target: field, isTrusted: true, ...options }); },
+    key(name, options = {}) { docListeners.keydown?.({ target: field, isTrusted: true, key: name, ...options }); },
     async reloadConfig() { runtimeListener({ type: "WIDGET_CONFIG_CHANGED" }, { id: chrome.runtime.id }, () => {}); await flush(); },
     open() { controls[".bubble"].fire("click", { detail: 0 }); },
     expanded() { return host.classList.contains("expanded"); },
@@ -261,4 +263,68 @@ test("Apagar texto de um input revisado manualmente também recolhe", async () =
   const h = await harness({ autoEditable: false }); h.input("Texto");
   await h.controls[".generate"].fire("click"); assert.equal(h.expanded(), true);
   h.input(""); assert.equal(h.expanded(), false);
+});
+
+test("Emoji confirmado sem compositionend retoma a revisão automática", async () => {
+  const h = await harness();
+  h.composition("compositionstart");
+  h.input("Olá 👍", true, { isComposing: false, inputType: "insertText", data: "👍" });
+  await h.advance(2499); assert.equal(h.requests.length, 0);
+  await h.advance(1); assert.equal(h.requests.length, 1);
+  assert.equal(h.requests[0].message.text, "Olá 👍");
+  h.input("Olá 👍 tudo bem?", true, { isComposing: false });
+  await h.advance(2500); assert.equal(h.requests.length, 2);
+});
+
+test("Composição ativa continua bloqueada mesmo após uma pausa longa", async () => {
+  const h = await harness();
+  h.input("候補", true, { isComposing: true, inputType: "insertCompositionText" });
+  await h.advance(10000); assert.equal(h.requests.length, 0);
+  h.input("確定 👍🏽", true, { isComposing: false, inputType: "insertFromComposition" });
+  await h.advance(2500); assert.equal(h.requests.length, 1);
+  assert.equal(h.requests[0].message.text, "確定 👍🏽");
+});
+
+test("Emoji após revisão pendente cancela a versão antiga e agenda o texto completo", async () => {
+  const h = await harness({ pending: true });
+  h.input("Olá", true, { isComposing: false }); await h.advance(2500);
+  h.composition("compositionstart"); assert.equal(h.cancelled.length, 1);
+  h.input("Olá 👩🏽‍💻 🇧🇷", true, { isComposing: false }); await h.advance(2500);
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.requests[1].message.text, "Olá 👩🏽‍💻 🇧🇷");
+  h.requests[0].resolve({ ok: true, suggestion: "Antiga" }); await flush();
+  assert.equal(h.expanded(), false);
+  h.requests[1].resolve({ ok: true, suggestion: "Olá 👩🏽‍💻 🇧🇷 revisado" }); await flush();
+  assert.equal(h.controls[".suggestion"].value, "Olá 👩🏽‍💻 🇧🇷 revisado");
+});
+
+test("Tecla normal recupera composição perdida; Process e código 229 não encerram IME", async () => {
+  const h = await harness(); h.composition("compositionstart");
+  h.input("Texto 🙂");
+  h.key("Process", { isComposing: false, keyCode: 229 }); await h.advance(3000);
+  assert.equal(h.requests.length, 0);
+  h.key("Escape", { isComposing: false, keyCode: 27 });
+  await h.advance(2499); assert.equal(h.requests.length, 0);
+  await h.advance(1); assert.equal(h.requests.length, 1);
+});
+
+test("compositionend atrasado não gera chamadas duplicadas após emoji confirmado", async () => {
+  const h = await harness(); h.composition("compositionstart");
+  h.input("Tudo bem? 😊", true, { isComposing: false });
+  await h.advance(500); h.composition("compositionend");
+  await h.advance(2500); assert.equal(h.requests.length, 1);
+  h.composition("compositionend"); await h.advance(3000); assert.equal(h.requests.length, 1);
+});
+
+test("Abrir teclado do sistema pausa o prazo e voltar retoma sem recarregar", async () => {
+  const h = await harness(); h.input("Texto", true, { isComposing: false });
+  await h.advance(1000); h.windowEvent("blur"); await h.advance(5000);
+  assert.equal(h.requests.length, 0);
+  h.input("Texto ✨", true, { isComposing: false }); h.windowEvent("focus");
+  await h.advance(2500); assert.equal(h.requests.length, 1);
+});
+
+test("Composição artificial não bloqueia a próxima revisão legítima", async () => {
+  const h = await harness(); h.composition("compositionstart", { isTrusted: false });
+  h.input("Texto normal"); await h.advance(2500); assert.equal(h.requests.length, 1);
 });

@@ -1,8 +1,10 @@
 # Texto IA — GHS Studio
 
-Extensão **0.7.0** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+Extensão **0.7.1** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
 
 ## Interface
+
+- Recuperação da revisão automática após inserir emojis pelo teclado do sistema.
 
 - Escolha salva por site: o robô pergunta na primeira visita, e a checkbox Usar IA neste site permite mudar a decisão.
 - Sites sem autorização não enviam revisões à API. Apagar ou enviar o texto recolhe a sugestão.

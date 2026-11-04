@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.7.0
+# Texto IA — GHS Studio · 0.7.1
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -110,3 +110,9 @@ Não há suporte a brave://, lojas de extensões e páginas protegidas. Alguns e
 ## Compatibilidade
 
 Consulte [COMPATIBILITY.md](COMPATIBILITY.md) antes de distribuir para outro navegador. O pacote Chromium atual não é instalável diretamente no Firefox ou Safari.
+
+## Emojis e composição do teclado
+
+A revisão acompanha o estado isComposing informado pela entrada do navegador. Uma entrada confirmada encerra um estado antigo de composição mesmo se compositionend não tiver chegado. Eventos de teclado fora de composição e o retorno à página também permitem retomar a revisão, mantendo a pausa de 2,5 segundos e o cancelamento de respostas antigas.
+
+Enquanto a entrada indica composição ativa, a revisão automática continua pausada para não processar texto incompleto. Foram usados testes locais de sequências de eventos; o painel nativo Win + . não foi exercitado nesta validação. Referência: [UI Events — isComposing](https://www.w3.org/TR/uievents/#dom-inputevent-iscomposing).
