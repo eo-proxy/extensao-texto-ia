@@ -308,7 +308,7 @@
     setStatus("Revisando o texto… Você pode continuar digitando para cancelar.");
     try {
       const response = await Promise.race([
-        chrome.runtime.sendMessage({ type: "AI_REWRITE", requestId: request.id, text: current.text, instruction: INSTRUCTIONS[instructionSelect.value] }),
+        chrome.runtime.sendMessage({ type: "AI_REWRITE", forceRefresh: manual, requestId: request.id, text: current.text, instruction: INSTRUCTIONS[instructionSelect.value] }),
         new Promise((_, reject) => { request.timeout = setTimeout(() => reject(new Error("A revisão demorou demais. Tente novamente ou escolha um modelo rápido.")), 30000); })
       ]);
       if (currentRequest !== request) return;

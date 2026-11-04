@@ -1,6 +1,6 @@
-# Compatibilidade de navegadores — Texto IA 0.6.2
+# Compatibilidade de navegadores — Texto IA 0.8.0
 
-Conferência do manifesto, das APIs e da documentação oficial em 26/10/2026. A extensão é um pacote Manifest V3 para navegadores de computador baseados em Chromium. Não é um pacote universal para todos os navegadores.
+Contrato do manifesto e testes locais reconferidos em 04/11/2026. A matriz de portabilidade conserva a pesquisa documental de 26/10/2026. A extensão é um pacote Manifest V3 para navegadores de computador baseados em Chromium. Não é um pacote universal para todos os navegadores.
 
 | Navegador | Mesmo pacote | Verificação realizada nesta versão |
 | --- | --- | --- |
@@ -17,6 +17,7 @@ Conferência do manifesto, das APIs e da documentação oficial em 26/10/2026. A
 
 - Manifest V3, service worker como módulo e popup local.
 - runtime.sendMessage/onMessage, tabs.query/sendMessage e scripting.executeScript.
+- tabs.onUpdated/onRemoved descartam cache e chamadas ao navegar/fechar a aba, sem acrescentar a permissão tabs. [Referência Chrome](https://developer.chrome.com/docs/extensions/reference/api/tabs). O cache em RAM pode desaparecer quando o serviço é encerrado; isso não impede uma nova revisão. [Ciclo do serviço](https://developer.chrome.com/docs/extensions/develop/concepts/service-workers/lifecycle).
 - storage.local, storage.session e setAccessLevel com TRUSTED_CONTEXTS.
 - permissions.contains/request e eventos de permissão.
 - Permissões de host opcionais limitadas às três APIs.

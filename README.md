@@ -1,6 +1,14 @@
 # Texto IA — GHS Studio
 
-Extensão **0.7.1** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+Extensão **0.8.0** para revisar textos com OpenAI (GPT), Google Gemini e Anthropic Claude, usando a chave de API de cada pessoa.
+
+## Economia de chamadas e segurança
+
+A versão 0.8.0 usa instruções menores nos três provedores e reaproveita revisões automáticas exatamente iguais por até 60 segundos em memória. Revisar agora, revisão manual e Testar Conexão consultam a API novamente. Modelo, texto completo, limites de saída e pausa de 2,5 segundos foram preservados.
+
+Em teste simulado, dez pedidos automáticos idênticos fizeram uma chamada por provedor. Isso não representa uma redução geral de 90% da conta: textos diferentes continuam gerando novas chamadas. Consulte as [medições e limites](brave-text-assistant/OPTIMIZATION.md).
+
+A revisão orientada pela skill secure-code-guardian conferiu mensagens, chaves, rede, campos e armazenamento. Foram reforçados o cancelamento durante a preparação, a validação antes de compartilhar pedidos e os limites das respostas. O [relatório de segurança](brave-text-assistant/SECURITY.md) registra a validação local e o que ainda depende de testes reais.
 
 ## Interface
 

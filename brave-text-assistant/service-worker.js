@@ -1,15 +1,23 @@
+import { RevisionCache, revisionFingerprint } from "./revision-cache.mjs";
 import { SITE_KEY_PREFIX, siteOrigin, getSitePreference, saveSitePreference } from "./site-preferences.mjs";
 import { getProvider } from "./providers.mjs";
 import { initializeStorage, getSettings, getSettingsForPage, selectProvider, saveProviderSettings, disableRemembering, removeProviderKey, markVerified } from "./settings.mjs";
-import { listProviderModels, rewriteWithProvider, apiFailure } from "./provider-api.mjs";
+import { listProviderModels, rewriteWithProvider, apiFailure, validateRewriteInput, reviewInstructions } from "./provider-api.mjs";
 
 const ready = initializeStorage().then(() => true, () => false);
 const PRIVILEGED = new Set(["GET_SITE_CONTEXT", "GET_SETTINGS", "SELECT_PROVIDER", "SAVE_PROVIDER_SETTINGS", "DISABLE_REMEMBERING", "REMOVE_PROVIDER_KEY", "LIST_PROVIDER_MODELS", "TEST_PROVIDER"]);
 const jobs = new Map();
+const revisionCache = new RevisionCache();
 const blockedUntil = new Map();
 
 function trustedPage(sender) {
   return sender.id === chrome.runtime.id && sender.url?.split(/[?#]/)[0] === chrome.runtime.getURL("sidepanel.html");
+}
+function contentSite(sender) {
+  if (!Number.isInteger(sender.tab?.id) || (sender.frameId ?? 0) !== 0) throw new Error("Origem da página inválida.");
+  const origin = siteOrigin(sender.url || sender.tab.url);
+  if (sender.tab.url && siteOrigin(sender.tab.url) !== origin) throw new Error("Origem da página inválida.");
+  return { origin, tabId: sender.tab.id };
 }
 async function currentSite(sender, expectedTab) {
   if (trustedPage(sender)) {
@@ -18,10 +26,7 @@ async function currentSite(sender, expectedTab) {
     if (expectedTab !== undefined && (!Number.isInteger(expectedTab) || tab.id !== expectedTab)) throw new Error("Volte à aba onde o texto foi lido para revisar.");
     return { origin: siteOrigin(tab.url), tabId: tab.id };
   }
-  if (!Number.isInteger(sender.tab?.id) || (sender.frameId ?? 0) !== 0) throw new Error("Origem da página inválida.");
-  const origin = siteOrigin(sender.url || sender.tab.url);
-  if (sender.tab.url && siteOrigin(sender.tab.url) !== origin) throw new Error("Origem da página inválida.");
-  return { origin, tabId: sender.tab.id };
+  return contentSite(sender);
 }
 async function requireSiteEnabled(origin, revision) {
   const preference = await getSitePreference(origin);
@@ -29,9 +34,9 @@ async function requireSiteEnabled(origin, revision) {
   if (revision !== undefined && preference.siteRevision !== revision) throw apiFailure("A escolha para este site mudou. Gere outra sugestão.", "CANCELLED");
   return preference;
 }
-function cancelSiteJobs(origin) { for (const job of jobs.values()) if (job.siteOrigin === origin) job.controller.abort(); }
+function cancelSiteJobs(origin) { revisionCache.clearOrigin(origin); for (const job of jobs.values()) if (job.siteOrigin === origin) job.controller.abort(); }
 function requestScope(sender) { return String(sender.tab?.id ?? "popup") + ":" + String(sender.frameId ?? 0); }
-function cancelJobs() { for (const job of jobs.values()) job.controller.abort(); jobs.clear(); }
+function cancelJobs() { revisionCache.clear(); for (const job of jobs.values()) job.controller.abort(); jobs.clear(); }
 async function requirePermission(provider) {
   if (!await chrome.permissions.contains({ origins: [getProvider(provider).host] })) throw new Error("Abra Configuração e autorize o acesso a este provedor.");
 }
@@ -49,48 +54,81 @@ async function diagnose(settings, startedAt, outcome) {
   diagnostics[settings.provider] = {
     provider: settings.provider, model: settings.model || "", revision: settings.revision || "", at: Date.now(),
     durationMs: Math.max(0, Date.now() - startedAt),
-    code: outcome.code || "OK", httpStatus: outcome.httpStatus || 200
+    code: outcome.code || "OK", httpStatus: outcome.httpStatus || 200,
+    ...(outcome.usage ? { usage: outcome.usage } : {})
   };
   await chrome.storage.session.set({ diagnostics });
 }
-async function generate(message, sender, test = false) {
-  const site = test ? null : await currentSite(sender, message.tabId);
-  if (site && trustedPage(sender) && message.siteOrigin !== site.origin) throw apiFailure("A página mudou. Leia o campo novamente antes de revisar.", "SITE_BLOCKED");
-  const preference = site ? await requireSiteEnabled(site.origin) : null;
-  const settings = await getSettings(test ? message.provider : undefined);
-  await requirePermission(settings.provider);
-  const key = requestScope(sender);
-  if (jobs.has(key)) jobs.get(key).controller.abort();
-  const job = { controller: new AbortController(), id: message.requestId || "manual", siteOrigin: site?.origin || null };
+async function assertCurrent(job, settings, site, siteRevision) {
+  if (job.controller.signal.aborted || (await getSettings()).revision !== settings.revision) throw apiFailure("Revisão cancelada.", "CANCELLED");
+  if (site) await requireSiteEnabled(site.origin, siteRevision);
+  if (job.controller.signal.aborted) throw apiFailure("Revisão cancelada.", "CANCELLED");
+}
+function generate(message, sender, test = false) {
+  const input = validateRewriteInput(test ? "Olá, este é um teste de conexão." : message.text, test ? "Corrija apenas a ortografia." : message.instruction);
+  const key = requestScope(sender), id = message.requestId ?? "manual";
+  if (typeof id !== "string" || !id || id.length > 128) throw new Error("Identificador de revisão inválido.");
+  if (!trustedPage(sender)) contentSite(sender);
+  const origin = test ? null : siteOrigin(trustedPage(sender) ? message.siteOrigin : sender.url || sender.tab?.url);
+  const tabId = test ? null : trustedPage(sender) ? message.tabId : sender.tab?.id;
+  if (!test && !Number.isInteger(tabId)) throw new Error("Abra a aba original para revisar.");
+  const forceRefresh = test || message.forceRefresh === true;
+  const existing = jobs.get(key);
+  if (!forceRefresh && !test && existing && !existing.test && !existing.controller.signal.aborted && existing.siteOrigin === origin && existing.tabId === tabId && existing.text === input.text && existing.instruction === input.instruction && existing.forceRefresh === forceRefresh) {
+    if (existing.ids.size >= 64 && !existing.ids.has(id)) throw new Error("Aguarde a revisão em andamento.");
+    existing.ids.add(id);
+    return existing.promise.then(result => ({ ...result, source: "inflight", usage: null, apiRequest: false }));
+  }
+  existing?.controller.abort();
+  const job = { controller: new AbortController(), ids: new Set([id]), siteOrigin: origin, tabId, text: input.text, instruction: input.instruction, forceRefresh, test };
   jobs.set(key, job);
+  job.promise = runGeneration(job, message, sender).finally(() => { if (jobs.get(key) === job) jobs.delete(key); });
+  return job.promise;
+}
+async function runGeneration(job, message, sender) {
+  let settings, site, preference;
   const startedAt = Date.now();
   try {
+    site = job.test ? null : await currentSite(sender, message.tabId);
+    if (site && (site.origin !== job.siteOrigin || site.tabId !== job.tabId)) throw apiFailure("A página mudou. Leia o campo novamente antes de revisar.", "SITE_BLOCKED");
+    preference = site ? await requireSiteEnabled(site.origin) : null;
+    settings = await getSettings(job.test ? message.provider : undefined);
+    await requirePermission(settings.provider);
+    await assertCurrent(job, settings, site, preference?.siteRevision);
+    const scope = site ? JSON.stringify([site.tabId, sender.frameId ?? 0, site.origin]) : null;
+    const fingerprint = site ? await revisionFingerprint([settings.provider, settings.model, settings.revision, settings.geminiSpeed, preference.siteRevision, reviewInstructions(job.instruction), job.text]) : null;
+    await assertCurrent(job, settings, site, preference?.siteRevision);
+    if (site && !job.forceRefresh) {
+      const cached = revisionCache.get(scope, fingerprint);
+      if (cached !== null) return { suggestion: cached, durationMs: Date.now() - startedAt, source: "memory", usage: null, apiRequest: false };
+    }
     const block = blockedUntil.get(settings.revision);
     if (block?.until > Date.now()) throw apiFailure("A API pediu uma pausa. Aguarde " + Math.ceil((block.until - Date.now()) / 1000) + " s antes de tentar novamente.", block.code, block.status, block.until - Date.now());
-    if (site) await requireSiteEnabled(site.origin, preference.siteRevision);
-    if (job.controller.signal.aborted) throw apiFailure("Revisão cancelada.", "CANCELLED");
-    const suggestion = await rewriteWithProvider(
-      settings, test ? "Olá, este é um teste de conexão." : message.text,
-      test ? "Corrija apenas a ortografia." : message.instruction,
-      { signal: job.controller.signal }
-    );
-    if (job.controller.signal.aborted || (await getSettings()).revision !== settings.revision) throw apiFailure("Revisão cancelada.", "CANCELLED");
-    if (site) await requireSiteEnabled(site.origin, preference.siteRevision);
-    await diagnose(settings, startedAt, { code: "OK", httpStatus: 200 });
-    if (test) { await markVerified(settings); return { tested: true, durationMs: Date.now() - startedAt }; }
-    return { suggestion, durationMs: Date.now() - startedAt };
+    let usage = null;
+    const suggestion = await rewriteWithProvider(settings, job.text, job.instruction, { signal: job.controller.signal, onUsage: value => { usage = value; } });
+    await assertCurrent(job, settings, site, preference?.siteRevision);
+    await diagnose(settings, startedAt, { code: "OK", httpStatus: 200, usage }).catch(() => {});
+    if (job.test) {
+      await markVerified(settings); await assertCurrent(job, settings, null);
+      return { tested: true, durationMs: Date.now() - startedAt, usage, source: "api", apiRequest: true };
+    }
+    await assertCurrent(job, settings, site, preference.siteRevision);
+    revisionCache.set(scope, fingerprint, suggestion, { tabId: site.tabId, origin: site.origin });
+    return { suggestion, durationMs: Date.now() - startedAt, usage, source: "api", apiRequest: true };
   } catch (error) {
-    if (!["CANCELLED", "SITE_BLOCKED"].includes(error.code) && !job.controller.signal.aborted) {
-      await diagnose(settings, startedAt, publicError(error));
+    if (settings && !["CANCELLED", "SITE_BLOCKED"].includes(error.code) && !job.controller.signal.aborted) {
+      await diagnose(settings, startedAt, publicError(error)).catch(() => {});
+      if (["AUTH", "PERMISSION"].includes(error.code)) revisionCache.clear();
       if (error.retryAfterMs > 0) blockedUntil.set(settings.revision, { until: Date.now() + error.retryAfterMs, code: error.code, status: error.httpStatus });
     }
     if (job.controller.signal.aborted) throw apiFailure("Revisão cancelada.", "CANCELLED");
     throw error;
-  } finally { if (jobs.get(key) === job) jobs.delete(key); }
+  }
 }
 async function handleMessage(message, sender) {
   if (!await ready) throw new Error("Não foi possível preparar a extensão. Recarregue-a no navegador.");
   if (PRIVILEGED.has(message.type) && !trustedPage(sender)) throw new Error("Esta operação só pode ser feita nas configurações da extensão.");
+  if (message.type === "AI_REWRITE") return generate(message, sender);
   if (!trustedPage(sender)) await currentSite(sender);
   if (message.type === "GET_SITE_CONTEXT") {
     const site = await currentSite(sender);
@@ -128,7 +166,7 @@ async function handleMessage(message, sender) {
   if (message.type === "TEST_PROVIDER") return generate(message, sender, true);
   if (message.type === "CANCEL_REWRITE") {
     const job = jobs.get(requestScope(sender));
-    if (job && job.id === message.requestId) job.controller.abort();
+    if (job && job.ids.has(message.requestId)) job.controller.abort();
     return {};
   }
   if (message.type === "GET_WIDGET_CONFIG") {
@@ -152,7 +190,6 @@ async function handleMessage(message, sender) {
     await chrome.storage.local.set(updates);
     return {};
   }
-  if (message.type === "AI_REWRITE") return generate(message, sender);
   throw new Error("Operação desconhecida.");
 }
 const ALLOWED = new Set([...PRIVILEGED, "GET_WIDGET_CONFIG", "SET_WIDGET_PREFS", "SET_SITE_PREFERENCE", "AI_REWRITE", "CANCEL_REWRITE"]);
@@ -171,9 +208,13 @@ async function notifyWidgets() {
 }
 chrome.storage.onChanged.addListener((changes, area) => {
   const siteKeys = area === "local" ? Object.keys(changes).filter(key => key.startsWith(SITE_KEY_PREFIX)) : [];
-  if (siteKeys.length) { for (const job of jobs.values()) if (siteKeys.includes(SITE_KEY_PREFIX + job.siteOrigin)) job.controller.abort(); notifyWidgets(); }
+  if (siteKeys.length) { for (const key of siteKeys) revisionCache.clearOrigin(key.slice(SITE_KEY_PREFIX.length)); for (const job of jobs.values()) if (siteKeys.includes(SITE_KEY_PREFIX + job.siteOrigin)) job.controller.abort(); notifyWidgets(); }
   const prefs = ["provider", "providerProfiles", "autoEnabled", "autoApplyEnabled", "widgetEnabled", "widgetInstruction"];
-  if ((area === "local" && prefs.some((key) => Object.hasOwn(changes, key))) || (area === "session" && changes.activeProviderProfile)) notifyWidgets();
+  if ((area === "local" && prefs.some((key) => Object.hasOwn(changes, key))) || (area === "session" && changes.activeProviderProfile)) { revisionCache.clear(); notifyWidgets(); }
 });
 chrome.permissions.onAdded.addListener(notifyWidgets);
 chrome.permissions.onRemoved.addListener(() => { cancelJobs(); notifyWidgets(); });
+
+function forgetTab(tabId) { revisionCache.clearTab(tabId); for (const job of jobs.values()) if (job.tabId === tabId) job.controller.abort(); }
+chrome.tabs.onRemoved?.addListener(forgetTab);
+chrome.tabs.onUpdated?.addListener((tabId, changes) => { if (changes.status === "loading" || changes.url) forgetTab(tabId); });

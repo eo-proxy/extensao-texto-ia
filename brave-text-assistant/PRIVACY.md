@@ -24,7 +24,15 @@ Em um site autorizado e com revisão automática ligada, após 2,5 segundos sem 
 
 A geração automática vem ligada depois da configuração. Aplicar sem confirmação vem desligado. Você pode pausar as revisões ou ocultar o robô. Campos de senha, códigos de acesso e cartão identificados por autocomplete são excluídos, assim como elementos marcados data-texto-ia-ignore. Informações sensíveis em campos comuns não são reconhecidas de forma infalível.
 
-Não coleta o conteúdo completo das páginas ou o histórico de navegação. As revisões não são armazenadas no disco pela extensão; permanecem temporariamente na interface/campo e na memória da chamada.
+Não coleta o conteúdo completo das páginas ou o histórico de navegação. As revisões não são armazenadas no disco pela extensão; permanecem temporariamente na interface/campo e na memória temporária descrita abaixo.
+
+## Reaproveitamento temporário
+
+Revisões concluídas podem ficar na memória do serviço da extensão por até 60 segundos, sem prolongar esse prazo quando usadas. O cache mantém a sugestão e um identificador SHA-256 da combinação exata de texto, instrução, modelo e configuração; o texto original e a chave não são gravados nesse cache. O identificador não é uma forma de anonimização nem é enviado a servidores.
+
+O limite é de quatro sugestões por escopo (aba, frame e origem) e 32 no total, com até 32.000 caracteres por sugestão. Não usa disco, chrome.storage, sincronização ou backend. Reiniciar/encerrar o serviço descarta esse cache, possivelmente antes dos 60 segundos.
+
+Navegar/fechar a aba, mudar o site/provedor/configuração ou revogar uma permissão limpa os resultados afetados. Toda reutilização reconfirma a escolha do site e a configuração/permissão atuais. Revisões automáticas idênticas em andamento podem compartilhar uma única chamada; cancelar um desses pedidos cancela o trabalho compartilhado. Revisão manual e Testar Conexão fazem nova consulta.
 
 ## Desfazer
 
@@ -34,7 +42,7 @@ Para permitir Desfazer sugestão, a última versão anterior à aplicação fica
 
 Consultar modelos envia a chave ao endpoint oficial da conta e filtra modelos de texto. Listar não comprova saldo, cota ou acesso de geração. Testar Conexão usa uma frase fixa e pode ter cobrança.
 
-O diagnóstico da sessão contém apenas provedor, modelo, horário, duração, código sanitizado, HTTP status e identificador aleatório da configuração. Não contém chaves, prompts, respostas, URL da página ou o erro bruto. Ele desaparece ao encerrar a sessão.
+O diagnóstico da sessão contém apenas provedor, modelo, horário, duração, código sanitizado, HTTP status e identificador aleatório da configuração. Não contém chaves, prompts, respostas, URL da página ou o erro bruto. Quando a API fornece contagens válidas, inclui também números de tokens de entrada, saída, total, cache e raciocínio disponíveis. Campos desconhecidos permanecem ausentes ou nulos; não são estimativas de preço. O registro desaparece ao encerrar a sessão.
 
 ## Provedor e cobrança
 

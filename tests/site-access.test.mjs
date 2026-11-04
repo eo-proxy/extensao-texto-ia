@@ -52,7 +52,7 @@ test("Desativar cancela chamada pendente e reativar não recupera a resposta ant
   const original = globalThis.fetch; let complete, signal;
   globalThis.fetch = async (_url, options) => { signal = options.signal; return new Promise(resolve => { complete = resolve; }); };
   try {
-    const pending = send({ type: "AI_REWRITE", text: "Texto", requestId: "site-disable" }); await flush();
+    const pending = send({ type: "AI_REWRITE", text: "Texto", forceRefresh: true, requestId: "site-disable" }); await until(() => signal);
     await send({ type: "SET_SITE_PREFERENCE", enabled: false }); assert.equal(signal.aborted, true);
     await send({ type: "SET_SITE_PREFERENCE", enabled: true });
     complete({ ok: true, json: async () => success }); assert.equal((await pending).code, "CANCELLED");
@@ -63,7 +63,7 @@ test("Mudar outro site não cancela a chamada autorizada deste site", async () =
   const original = globalThis.fetch; let complete, signal;
   globalThis.fetch = async (_url, options) => { signal = options.signal; return new Promise(resolve => { complete = resolve; }); };
   try {
-    const pending = send({ type: "AI_REWRITE", text: "Texto", requestId: "another-site" }); await flush();
+    const pending = send({ type: "AI_REWRITE", text: "Texto", forceRefresh: true, requestId: "another-site" }); await until(() => signal);
     await send({ type: "SET_SITE_PREFERENCE", enabled: false }, b); assert.equal(signal.aborted, false);
     complete({ ok: true, json: async () => success }); assert.equal((await pending).ok, true);
   } finally { globalThis.fetch = original; }
@@ -136,3 +136,8 @@ test("Encerrar a conexão não apaga as decisões salvas para os sites", async (
   assert.equal((await getSitePreference(b.url)).siteDecided, true);
   assert.equal((await getSitePreference(b.url)).siteEnabled, false);
 });
+
+async function until(predicate) {
+  const deadline = Date.now() + 2000;
+  while (!predicate()) { if (Date.now() > deadline) throw new Error("Condição assíncrona não ocorreu"); await new Promise(resolve => setTimeout(resolve, 2)); }
+}

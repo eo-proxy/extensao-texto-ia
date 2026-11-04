@@ -312,7 +312,7 @@ $("rewriteButton").addEventListener("click", async () => {
   setStatus(`Enviando texto para ${getProvider(provider).name}…`);
   try {
     const response = await chrome.runtime.sendMessage({
-      type: "AI_REWRITE", tabId: sourceTabId, siteOrigin: sourceOrigin,
+      type: "AI_REWRITE", forceRefresh: true, tabId: sourceTabId, siteOrigin: sourceOrigin,
       instruction: $("instruction").value.trim(),
       text: sourceText
     });

@@ -54,7 +54,7 @@ test("Cancelar interrompe fetch e uma outra aba não consegue cancelar esta cham
   try {
     globalThis.fetch = async (_url, options) => { signal = options.signal; return new Promise((_, reject) => signal.addEventListener("abort", () => reject(Object.assign(new Error(), { name: "AbortError" })))); };
     const pending = send({ type: "AI_REWRITE", requestId: "cancel-test", text: "Texto" }, script);
-    await flush();
+    await until(() => signal);
     await send({ type: "CANCEL_REWRITE", requestId: "cancel-test" }, { ...script, tab: { id: 999 } });
     assert.equal(signal.aborted, false);
     await send({ type: "CANCEL_REWRITE", requestId: "cancel-test" }, script);
@@ -68,7 +68,7 @@ test("Resposta antiga é rejeitada ao mudar a conexão mesmo se fetch ignorar ab
   try {
     globalThis.fetch = async () => new Promise((done) => { resolve = done; });
     const pending = send({ type: "AI_REWRITE", requestId: "change-test", text: "Texto" }, script);
-    await flush();
+    await until(() => resolve);
     await send({ type: "SAVE_PROVIDER_SETTINGS", provider: "openai", apiKey: "new-test-key", model: "gpt-new" });
     resolve({ ok: true, json: async () => success });
     assert.equal((await pending).code, "CANCELLED");
@@ -85,3 +85,8 @@ test("429 respeita a pausa informada sem repetir a chamada em sequência", async
     assert.equal(second.code, "RATE_LIMIT"); assert.equal(calls, 1);
   } finally { globalThis.fetch = old; }
 });
+
+async function until(predicate) {
+  const deadline = Date.now() + 2000;
+  while (!predicate()) { if (Date.now() > deadline) throw new Error("Condição assíncrona não ocorreu"); await new Promise(resolve => setTimeout(resolve, 2)); }
+}

@@ -1,4 +1,4 @@
-# Texto IA — GHS Studio · 0.7.1
+# Texto IA — GHS Studio · 0.8.0
 
 Assistente de revisão para navegadores Chromium de computador com OpenAI (GPT), Google Gemini e Anthropic Claude. Cada pessoa utiliza sua própria chave de API. A GHS Studio não recebe os textos em servidor próprio.
 
@@ -18,7 +18,7 @@ A janela mantém o mesmo tamanho ao alternar entre Revisar texto e Configuraçã
 
 1. Escolha OpenAI, Gemini ou Claude. O link Criar chave abre o painel oficial correspondente; as instruções detalhadas ficam em Como conectar.
 2. Cole sua chave. Marque Lembrar chave neste dispositivo somente se quiser guardá-la no perfil local.
-3. Clique em Salvar, acima da botão Encerrar Conexão. O modelo pode ficar vazio na primeira etapa.
+3. Clique em Salvar, acima do botão Encerrar Conexão. O modelo pode ficar vazio na primeira etapa.
 4. Se necessário, clique em Autorizar acesso. A conexão já foi preparada na sessão antes do aviso, que pode fechar a janela.
 5. Use Consultar modelos, logo abaixo do campo de modelo, e escolha uma opção da conta, ou informe um ID manualmente.
 6. Clique em Salvar para ativar, ou em Testar Conexão para ativar e confirmar uma geração com frase de exemplo. O teste pode consumir créditos.
@@ -55,7 +55,8 @@ A extensão aguarda a primeira decisão antes de ler ou enviar revisões. Depois
 - Digitar novamente fecha o painel, descarta a sugestão anterior, cancela a chamada e reinicia os 2,5 segundos.
 - Aplicar ou Descartar recolhe o painel que abriu sozinho. Se o usuário o abriu depois de digitar, ele permanece aberto após a decisão.
 - Aplicar sem confirmação vem desligado. Quando ligado, substitui o texto assim que a IA termina, sem um clique adicional.
-- Revisar agora permite uma chamada manual. No popup, Revisar um campo manualmente inclui instrução e seleção de trecho.
+- Pedidos automáticos idênticos podem reaproveitar uma revisão por até 60 segundos, somente em memória e na mesma aba/site/configuração. Texto ou instrução diferentes geram uma chamada nova.
+- Revisar agora sempre consulta a API novamente. No popup, Revisar um campo manualmente inclui instrução e seleção de trecho.
 - Pausar a revisão ou ocultar o botão impede chamadas automáticas naquela página.
 - Respostas de texto desatualizado, incompletas, bloqueadas ou de outra conexão não são aplicadas.
 - Há limite de 1.500 caracteres na instrução. Campos protegidos por senha, autocomplete de acesso/cartão, somente leitura ou data-texto-ia-ignore são excluídos.
@@ -99,6 +100,10 @@ OpenAI usa Responses para modelos atuais e Chat Completions para os antigos que 
 Claude usa a Messages API direta, autenticação Bearer, versão explícita e a chave da [Claude Console](https://platform.claude.com/settings/keys). Não aceita chaves de Bedrock ou Vertex AI. [Autenticação](https://platform.claude.com/docs/en/manage-claude/authentication).
 
 Acesso ao aplicativo de conversa não configura a API nesta extensão. Disponibilidade, saldo e cobrança são controlados por cada provedor.
+
+## Consumo de tokens
+
+As três integrações usam instruções enxutas e evitam pedidos automáticos duplicados. O diagnóstico guarda os números de tokens informados pela API quando disponíveis, sem textos ou chaves. A extensão não faz chamadas extras para contar tokens nem troca seu modelo. Veja [OPTIMIZATION.md](OPTIMIZATION.md) para as medições, controles e limites.
 
 ## Segurança e limites
 

@@ -200,7 +200,7 @@ test("Desfazer no popup invalida uma geração manual que termina depois", async
     await elements.readButton.fire("click");
     elements.reviewTab.fire("click"); await flush();
     globalThis.fetch = () => new Promise(resolve => { resolveGeneration = resolve; });
-    const generating = elements.rewriteButton.fire("click"); await flush();
+    const generating = elements.rewriteButton.fire("click"); await until(() => resolveGeneration);
     assert.equal(typeof resolveGeneration, "function");
     await elements.undoButton.fire("click"); assert.equal(content.field.value, "Original");
     resolveGeneration({ ok: true, json: async () => ({ candidates: [{ finishReason: "STOP", content: { parts: [{ text: "Atrasada" }] } }] }) });
@@ -247,3 +247,8 @@ test("Popup recusa aplicação depois de navegar para outro site na mesma aba", 
     assert.equal(content.field.value, "Original"); assert.match(elements.status.textContent, /página mudou/);
   } finally { env.chrome.tabs.query = originalQuery; env.chrome.tabs.sendMessage = originalMessage; delete env.chrome.scripting; }
 });
+
+async function until(predicate) {
+  const deadline = Date.now() + 2000;
+  while (!predicate()) { if (Date.now() > deadline) throw new Error("Condição assíncrona não ocorreu"); await new Promise(resolve => setTimeout(resolve, 2)); }
+}

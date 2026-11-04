@@ -17,7 +17,7 @@ export function mockChrome(initial = {}, initialSession = {}) {
       request: async ({ origins }) => { origins.forEach((origin) => permissions.add(origin)); return true; },
       onAdded: event("permissionAdded"), onRemoved: event("permissionRemoved")
     },
-    tabs: { query: async () => [], sendMessage: async (_tab, message) => { messages.push(message); } },
+    tabs: { onRemoved: event("tabRemoved"), onUpdated: event("tabUpdated"), query: async () => [], sendMessage: async (_tab, message) => { messages.push(message); } },
     storage: { onChanged: event("storageChanged"), local: area(state, "local"), session: area(sessionState, "session") }
   };
   return { chrome, state, sessionState, permissions, messages, listeners };
